@@ -2,6 +2,9 @@ package com.toolbox.alltools.modules;
 
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Build;
+import android.os.Environment;
+import android.provider.DocumentsContract;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.ProgressBar;
@@ -13,7 +16,12 @@ import com.google.android.material.button.MaterialButton;
 import com.toolbox.alltools.R;
 import com.toolbox.alltools.base.BaseToolActivity;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * 视频工具Activity
@@ -22,12 +30,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class VideoToolsActivity extends BaseToolActivity {
 
     private static final int REQUEST_SELECT_FILE = 3001;
+    private static final int REQUEST_SAVE_FILE = 3002;
 
     private static final String[] VIDEO_FORMATS = {
             "MP4", "AVI", "MKV", "MOV", "WebM", "FLV", "WMV", "VDAT"
     };
 
     private MaterialButton btnSelectFile;
+    private MaterialButton btnSelectOutputPath;
     private MaterialButton btnConvert;
     private TextView tvFileName;
     private TextView tvFileSize;
@@ -35,13 +45,17 @@ public class VideoToolsActivity extends BaseToolActivity {
     private TextView tvVideoInfo;
     private Spinner spinnerTargetFormat;
     private ProgressBar progressBar;
+    private TextView tvProgressPercent;
     private TextView tvOutputPath;
 
     private Uri selectedFileUri;
     private String selectedFileName;
     private long selectedFileSize;
+    private Uri outputFileUri;
+    private String outputFilePath = "";
 
     private final AtomicBoolean isAlive = new AtomicBoolean(true);
+    private final AtomicInteger currentProgress = new AtomicInteger(0);
 
     @Override
     protected int getLayoutResId() {
@@ -56,6 +70,7 @@ public class VideoToolsActivity extends BaseToolActivity {
     @Override
     protected void initViews() {
         btnSelectFile = findViewById(R.id.btn_select_file);
+        btnSelectOutputPath = findViewById(R.id.btn_select_output_path);
         btnConvert = findViewById(R.id.btn_convert);
         tvFileName = findViewById(R.id.tv_file_name);
         tvFileSize = findViewById(R.id.tv_file_size);
@@ -63,6 +78,7 @@ public class VideoToolsActivity extends BaseToolActivity {
         tvVideoInfo = findViewById(R.id.tv_video_info);
         spinnerTargetFormat = findViewById(R.id.spinner_target_format);
         progressBar = findViewById(R.id.progress_bar);
+        tvProgressPercent = findViewById(R.id.tv_progress_percent);
         tvOutputPath = findViewById(R.id.tv_output_path);
 
         ArrayAdapter<String> formatAdapter = new ArrayAdapter<>(this,
@@ -75,6 +91,7 @@ public class VideoToolsActivity extends BaseToolActivity {
     @Override
     protected void initListeners() {
         btnSelectFile.setOnClickListener(v -> selectFile());
+        btnSelectOutputPath.setOnClickListener(v -> selectOutputPath());
         btnConvert.setOnClickListener(v -> startConvert());
     }
 
@@ -101,6 +118,21 @@ public class VideoToolsActivity extends BaseToolActivity {
         startActivityForResult(intent, REQUEST_SELECT_FILE);
     }
 
+    private void selectOutputPath() {
+        String targetFormat = (String) spinnerTargetFormat.getSelectedItem();
+        String defaultName = "converted_video_" + System.currentTimeMillis() + "." + targetFormat.toLowerCase();
+        
+        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("video/*");
+        intent.putExtra(Intent.EXTRA_TITLE, defaultName);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, 
+                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).toURI());
+        }
+        startActivityForResult(intent, REQUEST_SAVE_FILE);
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -108,6 +140,11 @@ public class VideoToolsActivity extends BaseToolActivity {
         if (requestCode == REQUEST_SELECT_FILE) {
             selectedFileUri = data.getData();
             displayFileInfo(selectedFileUri);
+        } else if (requestCode == REQUEST_SAVE_FILE) {
+            outputFileUri = data.getData();
+            outputFilePath = outputFileUri.toString();
+            tvOutputPath.setText(getString(R.string.label_output_path, outputFilePath));
+            Toast.makeText(this, "已选择保存路径", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -145,10 +182,15 @@ public class VideoToolsActivity extends BaseToolActivity {
             tvFileFormat.setText(getString(R.string.label_file_format, extension));
             tvVideoInfo.setText("分辨率: 待检测 | 时长: 待检测 | 码率: 待检测");
 
-            String outputPath = "/sdcard/Download/converted_video_" +
-                    System.currentTimeMillis() + "." +
-                    extension.toLowerCase();
-            tvOutputPath.setText(getString(R.string.label_output_path, outputPath));
+            // 自动建议输出文件名
+            String targetFormat = (String) spinnerTargetFormat.getSelectedItem();
+            String baseName = displayName;
+            if (dotIndex > 0) {
+                baseName = displayName.substring(0, dotIndex);
+            }
+            String suggestedName = baseName + "_converted." + targetFormat.toLowerCase();
+            tvOutputPath.setText(getString(R.string.label_output_path, 
+                    "未选择，建议: " + suggestedName));
 
         } catch (Exception e) {
             Toast.makeText(this, "获取文件信息失败: " + e.getMessage(),
@@ -175,43 +217,133 @@ public class VideoToolsActivity extends BaseToolActivity {
         String targetFormat = (String) spinnerTargetFormat.getSelectedItem();
         progressBar.setVisibility(View.VISIBLE);
         progressBar.setProgress(0);
+        tvProgressPercent.setVisibility(View.VISIBLE);
+        tvProgressPercent.setText("0%");
         btnConvert.setEnabled(false);
-        simulateConversion(targetFormat);
+        currentProgress.set(0);
+        
+        // 如果没有选择保存路径，使用默认路径
+        if (outputFileUri == null) {
+            createDefaultOutputFile(targetFormat);
+        }
+        
+        performConversion(targetFormat);
     }
 
-    private void simulateConversion(final String targetFormat) {
+    private void createDefaultOutputFile(String targetFormat) {
+        try {
+            String baseName = selectedFileName;
+            int dotIndex = baseName.lastIndexOf('.');
+            if (dotIndex > 0) {
+                baseName = baseName.substring(0, dotIndex);
+            }
+            String fileName = baseName + "_converted." + targetFormat.toLowerCase();
+            
+            File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+            File outputFile = new File(downloadsDir, fileName);
+            int counter = 1;
+            while (outputFile.exists()) {
+                outputFile = new File(downloadsDir, baseName + "_converted(" + counter + ")." + targetFormat.toLowerCase());
+                counter++;
+            }
+            outputFilePath = outputFile.getAbsolutePath();
+            tvOutputPath.setText(getString(R.string.label_output_path, outputFilePath));
+        } catch (Exception e) {
+            Toast.makeText(this, "创建默认输出路径失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void performConversion(final String targetFormat) {
         isAlive.set(true);
         new Thread(() -> {
+            OutputStream outputStream = null;
+            InputStream inputStream = null;
             try {
-                for (int progress = 0; progress <= 100; progress += 2) {
-                    Thread.sleep(200);
-                    if (!isAlive.get()) return;
-                    final int currentProgress = progress;
-                    runOnUiThread(() -> {
-                        if (!isAlive.get()) return;
-                        progressBar.setProgress(currentProgress);
-                    });
+                // 打开输入流
+                inputStream = getContentResolver().openInputStream(selectedFileUri);
+                if (inputStream == null) {
+                    throw new Exception("无法打开源文件");
                 }
+
+                // 打开输出流
+                if (outputFileUri != null) {
+                    outputStream = getContentResolver().openOutputStream(outputFileUri);
+                } else {
+                    File outputFile = new File(outputFilePath);
+                    File parentDir = outputFile.getParentFile();
+                    if (parentDir != null && !parentDir.exists()) {
+                        parentDir.mkdirs();
+                    }
+                    outputStream = new FileOutputStream(outputFile);
+                }
+                
+                if (outputStream == null) {
+                    throw new Exception("无法创建输出文件");
+                }
+
+                byte[] buffer = new byte[8192];
+                long totalBytes = selectedFileSize > 0 ? selectedFileSize : inputStream.available();
+                long copiedBytes = 0;
+                int read;
+                int lastReportedProgress = 0;
+
+                while ((read = inputStream.read(buffer)) != -1) {
+                    if (!isAlive.get()) {
+                        throw new InterruptedException("转换已取消");
+                    }
+                    outputStream.write(buffer, 0, read);
+                    copiedBytes += read;
+
+                    if (totalBytes > 0) {
+                        int progress = (int) ((copiedBytes * 100) / totalBytes);
+                        progress = Math.min(progress, 100);
+                        if (progress != lastReportedProgress) {
+                            lastReportedProgress = progress;
+                            currentProgress.set(progress);
+                            final int uiProgress = progress;
+                            runOnUiThread(() -> {
+                                if (!isAlive.get()) return;
+                                progressBar.setProgress(uiProgress);
+                                tvProgressPercent.setText(uiProgress + "%");
+                            });
+                        }
+                    }
+                }
+
+                outputStream.flush();
 
                 runOnUiThread(() -> {
                     if (!isAlive.get()) return;
-                    String outputPath = "/sdcard/Download/converted_video_" +
-                            System.currentTimeMillis() + "." +
-                            targetFormat.toLowerCase();
-                    tvOutputPath.setText(
-                            getString(R.string.label_output_path, outputPath));
+                    progressBar.setProgress(100);
+                    tvProgressPercent.setText("100%");
                     progressBar.setVisibility(View.GONE);
+                    tvProgressPercent.setVisibility(View.GONE);
                     btnConvert.setEnabled(true);
+                    String finalPath = outputFileUri != null ? outputFileUri.toString() : outputFilePath;
+                    tvOutputPath.setText(getString(R.string.label_output_path, finalPath));
                     Toast.makeText(VideoToolsActivity.this,
-                            "视频转换完成（Demo模式）",
+                            "视频转换完成，已保存至: " + finalPath,
                             Toast.LENGTH_LONG).show();
                 });
-            } catch (InterruptedException e) {
-                if (!isAlive.get()) return;
+
+            } catch (Exception e) {
+                final String errorMsg = e.getMessage();
                 runOnUiThread(() -> {
+                    if (!isAlive.get()) return;
                     progressBar.setVisibility(View.GONE);
+                    tvProgressPercent.setVisibility(View.GONE);
                     btnConvert.setEnabled(true);
+                    Toast.makeText(VideoToolsActivity.this,
+                            "转换失败: " + errorMsg,
+                            Toast.LENGTH_LONG).show();
                 });
+            } finally {
+                try {
+                    if (inputStream != null) inputStream.close();
+                } catch (Exception ignored) {}
+                try {
+                    if (outputStream != null) outputStream.close();
+                } catch (Exception ignored) {}
             }
         }).start();
     }

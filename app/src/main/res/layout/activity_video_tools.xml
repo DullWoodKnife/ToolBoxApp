@@ -127,19 +127,33 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/tv_target_format_label" />
 
+    <!-- 保存路径选择按钮 -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_select_output_path"
+        android:layout_width="0dp"
+        android:layout_height="48dp"
+        android:layout_marginTop="12dp"
+        android:backgroundTint="@color/button_bg"
+        android:text="选择保存路径"
+        android:textColor="@color/button_text"
+        app:cornerRadius="8dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/spinner_target_format" />
+
     <!-- 转换按钮 -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_convert"
         android:layout_width="0dp"
         android:layout_height="48dp"
-        android:layout_marginTop="16dp"
+        android:layout_marginTop="12dp"
         android:backgroundTint="@color/button_bg"
         android:text="@string/btn_convert"
         android:textColor="@color/button_text"
         app:cornerRadius="8dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/spinner_target_format" />
+        app:layout_constraintTop_toBottomOf="@+id/btn_select_output_path" />
 
     <!-- 进度条 -->
     <ProgressBar
@@ -156,17 +170,31 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/btn_convert" />
 
+    <!-- 进度百分比 -->
+    <TextView
+        android:id="@+id/tv_progress_percent"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:text="0%"
+        android:textColor="@color/text_secondary"
+        android:textSize="13sp"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/progress_bar" />
+
     <!-- 输出路径显示 -->
     <TextView
         android:id="@+id/tv_output_path"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
+        android:layout_marginTop="8dp"
         android:text="输出路径: --"
         android:textColor="@color/text_secondary"
         android:textSize="13sp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/progress_bar" />
+        app:layout_constraintTop_toBottomOf="@+id/tv_progress_percent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
