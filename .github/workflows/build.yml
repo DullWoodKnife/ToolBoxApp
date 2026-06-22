@@ -34,6 +34,35 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
+    - name: Auto increment version
+      run: |
+        # 读取当前 versionName 和 versionCode
+        VERSION_NAME=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+        VERSION_CODE=$(grep -oP 'versionCode = \K[0-9]+' app/build.gradle.kts)
+        
+        # 解析 versionName 的三段式 x.y.z
+        MAJOR=$(echo "$VERSION_NAME" | cut -d. -f1)
+        MINOR=$(echo "$VERSION_NAME" | cut -d. -f2)
+        PATCH=$(echo "$VERSION_NAME" | cut -d. -f3)
+        
+        # 最后一位加一
+        NEW_PATCH=$((PATCH + 1))
+        NEW_VERSION_NAME="${MAJOR}.${MINOR}.${NEW_PATCH}"
+        NEW_VERSION_CODE=$((VERSION_CODE + 1))
+        
+        # 更新 build.gradle.kts
+        sed -i "s/versionCode = [0-9]*/versionCode = ${NEW_VERSION_CODE}/" app/build.gradle.kts
+        sed -i "s/versionName = \"[^\"]*\"/versionName = \"${NEW_VERSION_NAME}\"/" app/build.gradle.kts
+        
+        echo "Version updated: ${VERSION_NAME}(${VERSION_CODE}) -> ${NEW_VERSION_NAME}(${NEW_VERSION_CODE})"
+        
+        # 提交版本号更新
+        git config user.name "github-actions"
+        git config user.email "github-actions@github.com"
+        git add app/build.gradle.kts
+        git diff --cached --quiet || git commit -m "ci: auto bump version to ${NEW_VERSION_NAME} (${NEW_VERSION_CODE})"
+        git diff --cached --quiet || git push origin main
+
     - name: Clean build
       run: ./gradlew clean --no-daemon
 
