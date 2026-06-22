@@ -15,6 +15,7 @@ import android.widget.Toast;
 import com.google.android.material.button.MaterialButton;
 import com.toolbox.alltools.R;
 import com.toolbox.alltools.base.BaseToolActivity;
+import com.toolbox.alltools.config.AppConfig;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -239,11 +240,12 @@ public class VideoToolsActivity extends BaseToolActivity {
             }
             String fileName = baseName + "_converted." + targetFormat.toLowerCase();
             
-            File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
-            File outputFile = new File(downloadsDir, fileName);
+            // 默认保存到 sdcard/ToolBox/VideoTools/
+            File moduleDir = AppConfig.getModuleDir(AppConfig.DIR_VIDEO_TOOLS);
+            File outputFile = new File(moduleDir, fileName);
             int counter = 1;
             while (outputFile.exists()) {
-                outputFile = new File(downloadsDir, baseName + "_converted(" + counter + ")." + targetFormat.toLowerCase());
+                outputFile = new File(moduleDir, baseName + "_converted(" + counter + ")." + targetFormat.toLowerCase());
                 counter++;
             }
             outputFilePath = outputFile.getAbsolutePath();

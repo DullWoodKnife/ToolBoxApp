@@ -13,7 +13,9 @@ import android.widget.Toast;
 import com.google.android.material.button.MaterialButton;
 import com.toolbox.alltools.R;
 import com.toolbox.alltools.base.BaseToolActivity;
+import com.toolbox.alltools.config.AppConfig;
 
+import java.io.File;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -142,10 +144,19 @@ public class AudioConverterActivity extends BaseToolActivity {
                     formatFileSize(selectedFileSize)));
             tvFileFormat.setText(getString(R.string.label_file_format, extension));
 
-            String outputPath = "/sdcard/Download/converted_audio_" +
-                    System.currentTimeMillis() + "." +
-                    extension.toLowerCase();
-            tvOutputPath.setText(getString(R.string.label_output_path, outputPath));
+            // 默认保存到 sdcard/ToolBox/AudioConverter/
+            File moduleDir = AppConfig.getModuleDir(AppConfig.DIR_AUDIO_CONVERTER);
+            String baseName = displayName;
+            int dotIndex = baseName.lastIndexOf('.');
+            if (dotIndex > 0) baseName = baseName.substring(0, dotIndex);
+            String fileName = baseName + "_converted." + extension.toLowerCase();
+            File outputFile = new File(moduleDir, fileName);
+            int counter = 1;
+            while (outputFile.exists()) {
+                outputFile = new File(moduleDir, baseName + "_converted(" + counter + ")." + extension.toLowerCase());
+                counter++;
+            }
+            tvOutputPath.setText(getString(R.string.label_output_path, outputFile.getAbsolutePath()));
 
         } catch (Exception e) {
             Toast.makeText(this, "获取文件信息失败: " + e.getMessage(),
@@ -192,15 +203,24 @@ public class AudioConverterActivity extends BaseToolActivity {
 
                 runOnUiThread(() -> {
                     if (!isAlive.get()) return;
-                    String outputPath = "/sdcard/Download/converted_audio_" +
-                            System.currentTimeMillis() + "." +
-                            targetFormat.toLowerCase();
+                    // 默认保存到 sdcard/ToolBox/AudioConverter/
+                    File moduleDir = AppConfig.getModuleDir(AppConfig.DIR_AUDIO_CONVERTER);
+                    String baseName = selectedFileName;
+                    int dotIndex = baseName.lastIndexOf('.');
+                    if (dotIndex > 0) baseName = baseName.substring(0, dotIndex);
+                    String fileName = baseName + "_converted." + targetFormat.toLowerCase();
+                    File outputFile = new File(moduleDir, fileName);
+                    int counter = 1;
+                    while (outputFile.exists()) {
+                        outputFile = new File(moduleDir, baseName + "_converted(" + counter + ")." + targetFormat.toLowerCase());
+                        counter++;
+                    }
                     tvOutputPath.setText(
-                            getString(R.string.label_output_path, outputPath));
+                            getString(R.string.label_output_path, outputFile.getAbsolutePath()));
                     progressBar.setVisibility(View.GONE);
                     btnConvert.setEnabled(true);
                     Toast.makeText(AudioConverterActivity.this,
-                            "音频转换完成（Demo模式）",
+                            "音频转换完成（Demo模式），已保存到: " + outputFile.getAbsolutePath(),
                             Toast.LENGTH_LONG).show();
                 });
             } catch (InterruptedException e) {

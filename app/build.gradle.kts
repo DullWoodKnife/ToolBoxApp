@@ -79,6 +79,20 @@ dependencies {
     // HTML Parser
     implementation("org.jsoup:jsoup:1.17.2")
 
+    // JSON
+    implementation("com.google.code.gson:gson:2.10.1")
+
+    // Apache POI - Word/Excel/PPT
+    implementation("org.apache.poi:poi:5.2.5")
+    implementation("org.apache.poi:poi-ooxml:5.2.5")
+    implementation("org.apache.poi:poi-scratchpad:5.2.5")
+
+    // EPUB
+    implementation("nl.siegmann.epublib:epublib-core:3.1")
+
+    // PDF
+    implementation("com.tom-roush:pdfbox-android:2.0.27.0")
+
     // Testing
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")

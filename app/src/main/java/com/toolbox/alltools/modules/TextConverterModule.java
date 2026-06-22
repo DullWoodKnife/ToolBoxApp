@@ -25,6 +25,6 @@ public class TextConverterModule implements ToolModule {
 
     @Override
     public String getModuleDesc() {
-        return "支持JSON、XML、CSV、YAML、Base64、URL编解码等多种格式转换";
+        return "支持DOC/DOCX/XLS/XLSX/PPT/PPTX/EPUB/PDF/AZW3/MOBI/TXT/MD/JSON/XML/HTML互转";
     }
 }

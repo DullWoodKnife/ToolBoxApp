@@ -25,6 +25,6 @@ public class TextEditorModule implements ToolModule {
 
     @Override
     public String getModuleDesc() {
-        return "打开、编辑、保存文本文件，支持字数统计和行数统计";
+        return "支持TXT/MD/JSON/XML/HTML/DOC/DOCX/XLS/XLSX/PPT/PPTX/EPUB/PDF/AZW3/MOBI格式";
     }
 }

@@ -122,6 +122,27 @@
             android:popupBackground="@color/card_dark" />
     </LinearLayout>
 
+    <!-- 文件信息栏 -->
+    <TextView
+        android:id="@+id/tv_file_info"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp"
+        android:layout_marginTop="4dp"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp"
+        android:background="@color/card_dark"
+        android:textColor="@color/text_secondary"
+        android:textSize="12sp"
+        android:text=""
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/tv_file_info" />
+
     <!-- 文本编辑区域 -->
     <EditText
         android:id="@+id/et_editor"
