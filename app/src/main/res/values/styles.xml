@@ -9,7 +9,7 @@
     </style>
 
     <!-- 深色输入框样式 -->
-    <style name="DarkEditTextStyle" parent="android.widget.EditText">
+    <style name="DarkEditTextStyle" parent="Widget.AppCompat.EditText">
         <item name="android:background">@drawable/bg_edittext</item>
         <item name="android:textColor">@color/text_white</item>
         <item name="android:textColorHint">@color/text_secondary</item>
