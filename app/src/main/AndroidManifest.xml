@@ -51,10 +51,6 @@
             android:name=".modules.CalculatorActivity"
             android:theme="@style/Theme.ToolBoxApp" />
 
-        <activity
-            android:name=".modules.FileReaderTestActivity"
-            android:theme="@style/Theme.ToolBoxApp" />
-
     </application>
 
 </manifest>
