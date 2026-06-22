@@ -141,7 +141,7 @@
         android:visibility="gone"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/tv_file_info" />
+        app:layout_constraintTop_toBottomOf="@+id/ll_encoding_bar" />
 
     <!-- 文本编辑区域 -->
     <EditText
@@ -161,7 +161,7 @@
         app:layout_constraintBottom_toTopOf="@+id/ll_status_bar"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/ll_encoding_bar" />
+        app:layout_constraintTop_toBottomOf="@+id/tv_file_info" />
 
     <!-- 底部状态栏 -->
     <LinearLayout
