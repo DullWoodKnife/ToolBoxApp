@@ -29,51 +29,34 @@ public class AppConfig {
 
     /**
      * 获取默认工作目录 File 对象
-     * 优先使用外部存储根目录，如果无权限则使用应用私有目录
+     * 固定使用外部存储根目录 sdcard/ToolBox/，不自动降级到私有目录
      */
     public static File getWorkDir() {
-        // 尝试使用外部存储根目录 sdcard/ToolBox/
         File externalDir = Environment.getExternalStorageDirectory();
-        if (externalDir != null && externalDir.canWrite()) {
-            File workDir = new File(externalDir, DEFAULT_WORK_DIR);
-            if (workDir.exists() || workDir.mkdirs()) {
-                return workDir;
-            }
+        File workDir = new File(externalDir, DEFAULT_WORK_DIR);
+        if (!workDir.exists()) {
+            workDir.mkdirs();
         }
-        // 备用：使用应用外部私有目录（无需额外权限）
-        android.content.Context ctx = com.toolbox.alltools.ToolApplication.getInstance();
-        if (ctx != null) {
-            File appExternalDir = ctx.getExternalFilesDir(null);
-            if (appExternalDir != null) {
-                File workDir = new File(appExternalDir, DEFAULT_WORK_DIR);
-                if (workDir.exists() || workDir.mkdirs()) {
-                    return workDir;
-                }
-            }
-        }
-        // 最后备用：使用外部存储根目录（即使可能失败）
-        return new File(externalDir, DEFAULT_WORK_DIR);
+        return workDir;
     }
 
     /**
      * 获取指定功能模块的子目录
+     * 固定使用 sdcard/ToolBox/{moduleDir}/，不自动降级
      */
     public static File getModuleDir(String moduleDir) {
         File dir = new File(getWorkDir(), moduleDir);
         if (!dir.exists()) {
-            boolean success = dir.mkdirs();
-            if (!success) {
-                // 如果创建失败，尝试在应用私有目录创建
-                android.content.Context ctx = com.toolbox.alltools.ToolApplication.getInstance();
-                if (ctx != null) {
-                    File fallbackDir = ctx.getExternalFilesDir(moduleDir);
-                    if (fallbackDir != null) {
-                        if (!fallbackDir.exists()) fallbackDir.mkdirs();
-                        return fallbackDir;
-                    }
-                }
-            }
+            dir.mkdirs();
         }
         return dir;
+    }
+
+    /**
+     * 检查默认工作目录是否可写入
+     */
+    public static boolean isWorkDirWritable() {
+        File workDir = getWorkDir();
+        return workDir.exists() && workDir.canWrite();
     }
 }

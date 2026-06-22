@@ -321,17 +321,15 @@ public class VideoToolsActivity extends BaseToolActivity {
                     if (!moduleDir.exists()) {
                         boolean created = moduleDir.mkdirs();
                         if (!created) {
-                            throw new Exception("无法创建输出目录: " + moduleDir.getAbsolutePath() + "，请检查存储权限");
+                            throw new Exception("无法创建输出目录: " + moduleDir.getAbsolutePath() + "\n请检查应用是否已授予存储权限");
                         }
                     }
                     if (!moduleDir.canWrite()) {
-                        throw new Exception("输出目录无写入权限: " + moduleDir.getAbsolutePath());
+                        throw new Exception("输出目录无写入权限: " + moduleDir.getAbsolutePath() + "\n请前往设置 -> 应用 -> 工具箱 -> 权限，授予存储权限");
                     }
                     String baseName = selectedFileName;
                     int dotIndex = baseName.lastIndexOf('.');
                     if (dotIndex > 0) baseName = baseName.substring(0, dotIndex);
-                    // 过滤文件名中的非法字符
-                    baseName = baseName.replaceAll("[^\\w\\u4e00-\\u9fa5\\-\\.]", "_");
                     String fileName = baseName + "_converted." + targetFormat.toLowerCase();
                     outputFile = new File(moduleDir, fileName);
                     int counter = 1;

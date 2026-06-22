@@ -1,18 +1,27 @@
 package com.toolbox.alltools;
 
+import android.Manifest;
+import android.app.AlertDialog;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.view.View;
 import android.widget.LinearLayout;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.toolbox.alltools.adapter.ToolCardAdapter;
+import com.toolbox.alltools.config.AppConfig;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -32,19 +41,157 @@ public class MainActivity extends AppCompatActivity {
     private static final int ROWS_PER_PAGE = 3;
     private static final int ITEMS_PER_PAGE = SPAN_COUNT * ROWS_PER_PAGE;
 
+    /** 存储权限请求码 */
+    private static final int REQUEST_STORAGE_PERMISSIONS = 100;
+    /** 管理所有文件权限请求码（Android 11+） */
+    private static final int REQUEST_MANAGE_ALL_FILES = 101;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
         initViews();
-        initRecyclerView();
-        initPageIndicator();
+        checkAndRequestPermissions();
     }
 
     private void initViews() {
         rvTools = findViewById(R.id.rv_tools);
         llPageIndicator = findViewById(R.id.ll_page_indicator);
+    }
+
+    // ==================== 权限申请 ====================
+
+    /**
+     * 检查并申请存储权限
+     */
+    private void checkAndRequestPermissions() {
+        // Android 11+ (API 30+) 需要 MANAGE_EXTERNAL_STORAGE 权限
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            if (!android.os.Environment.isExternalStorageManager()) {
+                showManageStorageDialog();
+                return;
+            }
+        } else {
+            // Android 6~10 需要运行时权限申请
+            List<String> permissionsToRequest = new ArrayList<>();
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
+                    != PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(Manifest.permission.READ_EXTERNAL_STORAGE);
+            }
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                    != PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(Manifest.permission.WRITE_EXTERNAL_STORAGE);
+            }
+
+            if (!permissionsToRequest.isEmpty()) {
+                ActivityCompat.requestPermissions(this,
+                        permissionsToRequest.toArray(new String[0]),
+                        REQUEST_STORAGE_PERMISSIONS);
+                return;
+            }
+        }
+
+        // 权限已授予，初始化界面
+        initApp();
+    }
+
+    /**
+     * Android 11+ 显示管理所有文件权限的引导对话框
+     */
+    private void showManageStorageDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("需要存储权限")
+                .setMessage("本应用需要将文件保存到 sdcard/ToolBox/ 目录。\n\n" +
+                        "请点击「前往设置」，在设置页面中开启「允许管理所有文件」权限。")
+                .setCancelable(false)
+                .setPositiveButton("前往设置", (dialog, which) -> {
+                    Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+                    intent.setData(Uri.parse("package:" + getPackageName()));
+                    startActivityForResult(intent, REQUEST_MANAGE_ALL_FILES);
+                })
+                .setNegativeButton("退出应用", (dialog, which) -> finish())
+                .show();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQUEST_STORAGE_PERMISSIONS) {
+            boolean allGranted = true;
+            for (int result : grantResults) {
+                if (result != PackageManager.PERMISSION_GRANTED) {
+                    allGranted = false;
+                    break;
+                }
+            }
+            if (allGranted) {
+                initApp();
+            } else {
+                // 有权限被拒绝
+                boolean shouldShowRationale = false;
+                for (String permission : permissions) {
+                    if (ActivityCompat.shouldShowRequestPermissionRationale(this, permission)) {
+                        shouldShowRationale = true;
+                        break;
+                    }
+                }
+                if (shouldShowRationale) {
+                    new AlertDialog.Builder(this)
+                            .setTitle("权限被拒绝")
+                            .setMessage("存储权限是本应用的核心功能，用于保存转换后的文件到 sdcard/ToolBox/ 目录。\n\n是否重新申请？")
+                            .setCancelable(false)
+                            .setPositiveButton("重新申请", (dialog, which) -> checkAndRequestPermissions())
+                            .setNegativeButton("退出应用", (dialog, which) -> finish())
+                            .show();
+                } else {
+                    // 用户选择了"不再询问"，引导到设置页面
+                    new AlertDialog.Builder(this)
+                            .setTitle("权限被永久拒绝")
+                            .setMessage("您已永久拒绝存储权限。请前往设置 -> 应用 -> 工具箱 -> 权限，手动开启存储权限。")
+                            .setCancelable(false)
+                            .setPositiveButton("前往设置", (dialog, which) -> {
+                                Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                                intent.setData(Uri.parse("package:" + getPackageName()));
+                                startActivity(intent);
+                                finish();
+                            })
+                            .setNegativeButton("退出应用", (dialog, which) -> finish())
+                            .show();
+                }
+            }
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_MANAGE_ALL_FILES) {
+            // 从设置页面返回，重新检查权限
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                if (android.os.Environment.isExternalStorageManager()) {
+                    initApp();
+                } else {
+                    showManageStorageDialog();
+                }
+            }
+        }
+    }
+
+    // ==================== 应用初始化 ====================
+
+    private void initApp() {
+        // 确保工作目录存在
+        AppConfig.getWorkDir();
+        AppConfig.getModuleDir(AppConfig.DIR_TEXT_EDITOR);
+        AppConfig.getModuleDir(AppConfig.DIR_TEXT_CONVERTER);
+        AppConfig.getModuleDir(AppConfig.DIR_AUDIO_CONVERTER);
+        AppConfig.getModuleDir(AppConfig.DIR_VIDEO_TOOLS);
+        AppConfig.getModuleDir(AppConfig.DIR_WEB_CRAWLER);
+
+        initRecyclerView();
+        initPageIndicator();
     }
 
     private void initRecyclerView() {
