@@ -847,13 +847,13 @@ public class TextEditorActivity extends BaseToolActivity {
             try {
                 document = PDDocument.load(tempFile);
             } catch (Exception e) {
-                // 如果标准加载失败，尝试用非严格模式
+                // 如果标准加载失败，尝试用非严格模式（空密码）
                 try {
                     document = PDDocument.load(tempFile, "");
                 } catch (Exception e2) {
-                    // 最后尝试逐页解析
-                    document = PDDocument.load(tempFile,
-                            org.apache.pdfbox.io.IOUtils.createTempFileOnlyStreamCache());
+                    // 再失败则返回错误
+                    tempFile.delete();
+                    return "读取PDF失败: 无法解析PDF文件，文件可能已损坏或加密";
                 }
             }
 
