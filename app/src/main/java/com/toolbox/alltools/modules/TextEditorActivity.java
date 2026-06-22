@@ -52,8 +52,8 @@ import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.io.FileWriter;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
@@ -131,6 +131,14 @@ public class TextEditorActivity extends BaseToolActivity {
 
     // MOBI 缓存
     private File mobiCacheFile = null;
+
+    // 大文本分页相关
+    private static final int TEXT_LINES_PER_PAGE = 5000; // 每页5000行
+    private File txtCacheFile = null;
+    private long txtTotalLines = 0;
+    private int txtCurrentPage = 1;
+    private int txtTotalPages = 1;
+    private boolean txtIsPaged = false; // 是否为分页模式
 
     @Override
     protected void onDestroy() {
@@ -336,6 +344,7 @@ public class TextEditorActivity extends BaseToolActivity {
     private void closeAllCaches() {
         closePdfCache();
         closeMobiCache();
+        closeTxtCache();
         epubChapters.clear();
         epubCurrentChapter = 0;
         epubBaseDir = "";
@@ -716,6 +725,15 @@ public class TextEditorActivity extends BaseToolActivity {
                 Toast.makeText(TextEditorActivity.this,
                         "文件已打开: " + currentFileName + "（点击文件信息栏跳转页面）",
                         Toast.LENGTH_LONG).show();
+            }
+            // TXT 大文件分页导航
+            else if (txtIsPaged && txtTotalPages > 1) {
+                tvFileInfo.setOnClickListener(v -> showTxtPageNav());
+                tvFileInfo.setClickable(true);
+                tvFileInfo.setText(currentFileName + " | TXT | 第 1/" + txtTotalPages + " 页 | 点击跳转");
+                Toast.makeText(TextEditorActivity.this,
+                        "文件已打开: " + currentFileName + "（大文件分页模式，点击文件信息栏跳转页面）",
+                        Toast.LENGTH_LONG).show();
             } else {
                 tvFileInfo.setClickable(false);
                 Toast.makeText(TextEditorActivity.this, "文件已打开: " + currentFileName, Toast.LENGTH_SHORT).show();
@@ -726,7 +744,13 @@ public class TextEditorActivity extends BaseToolActivity {
     // ==================== 文本格式读取 ====================
 
     private String readTextFile(Uri uri, boolean isJson) {
-        byte[] fileBytes = readFileBytes(uri, (int) Math.min(getFileSize(uri), 64 * 1024));
+        long fileSize = getFileSize(uri);
+        // 大文件（>5MB）走分页模式
+        if (fileSize > 5 * 1024 * 1024) {
+            return initTxtPaged(uri, isJson);
+        }
+
+        byte[] fileBytes = readFileBytes(uri, (int) Math.min(fileSize, 64 * 1024));
         if (fileBytes == null || fileBytes.length == 0) return "";
         detectedEncoding = detectEncoding(fileBytes);
         String content = readWithEncodingStream(uri, detectedEncoding);
@@ -738,6 +762,214 @@ public class TextEditorActivity extends BaseToolActivity {
             } catch (Exception ignored) {}
         }
         return content != null ? content : "";
+    }
+
+    /**
+     * 大文本文件分页模式：先缓存到临时文件，统计行数，加载第一页
+     */
+    private String initTxtPaged(Uri uri, boolean isJson) {
+        closeTxtCache();
+        txtIsPaged = true;
+
+        try {
+            // 复制到临时文件
+            txtCacheFile = File.createTempFile("txt_cache_", ".txt", getCacheDir());
+            try (InputStream is = getContentResolver().openInputStream(uri);
+                 OutputStream os = new FileOutputStream(txtCacheFile)) {
+                if (is == null) return "无法读取文件";
+                byte[] buffer = new byte[BUFFER_SIZE];
+                int len;
+                while ((len = is.read(buffer)) != -1) {
+                    os.write(buffer, 0, len);
+                }
+            }
+
+            // 检测编码
+            byte[] headBytes = readFileBytes(uri, 64 * 1024);
+            if (headBytes != null && headBytes.length > 0) {
+                detectedEncoding = detectEncoding(headBytes);
+            }
+
+            // 统计总行数
+            txtTotalLines = countLines(txtCacheFile, detectedEncoding);
+            txtTotalPages = (int) Math.max(1, (txtTotalLines + TEXT_LINES_PER_PAGE - 1) / TEXT_LINES_PER_PAGE);
+            txtCurrentPage = 1;
+
+            // 读取第一页
+            String pageText = readTxtPage(1, detectedEncoding);
+
+            if (isJson && pageText != null && !pageText.trim().isEmpty()) {
+                try {
+                    Gson gson = new GsonBuilder().setPrettyPrinting().create();
+                    Object json = gson.fromJson(pageText, Object.class);
+                    pageText = gson.toJson(json);
+                } catch (Exception ignored) {}
+            }
+
+            return "━━━ 第 1 / " + txtTotalPages + " 页（共" + txtTotalLines + "行）━━━\n\n" +
+                    (pageText != null ? pageText : "（空文件）");
+        } catch (Exception e) {
+            closeTxtCache();
+            txtIsPaged = false;
+            return "读取文件失败: " + e.getMessage();
+        }
+    }
+
+    /**
+     * 统计文件行数
+     */
+    private long countLines(File file, String encoding) throws Exception {
+        long count = 0;
+        try (InputStream is = new FileInputStream(file);
+             BufferedReader reader = new BufferedReader(new InputStreamReader(is, Charset.forName(encoding)), BUFFER_SIZE)) {
+            while (reader.readLine() != null) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /**
+     * 读取指定页的文本
+     */
+    private String readTxtPage(int page, String encoding) throws Exception {
+        if (txtCacheFile == null || !txtCacheFile.exists()) return null;
+
+        int startLine = (page - 1) * TEXT_LINES_PER_PAGE;
+        int endLine = page * TEXT_LINES_PER_PAGE;
+
+        StringBuilder sb = new StringBuilder(BUFFER_SIZE);
+        try (InputStream is = new FileInputStream(txtCacheFile);
+             BufferedReader reader = new BufferedReader(new InputStreamReader(is, Charset.forName(encoding)), BUFFER_SIZE)) {
+            String line;
+            int currentLine = 0;
+            while ((line = reader.readLine()) != null) {
+                if (currentLine >= endLine) break;
+                if (currentLine >= startLine) {
+                    if (sb.length() > 0) sb.append("\n");
+                    sb.append(line);
+                }
+                currentLine++;
+            }
+        }
+        return sb.toString();
+    }
+
+    /**
+     * 异步加载文本指定页
+     */
+    private void loadTxtPageAsync(int page) {
+        showProgress("正在读取第 " + page + " 页...");
+        txtCurrentPage = page;
+        executorService.execute(() -> {
+            try {
+                String pageText = readTxtPage(page, detectedEncoding);
+                final String displayText = "━━━ 第 " + page + " / " + txtTotalPages + " 页（共" + txtTotalLines + "行）━━━\n\n" +
+                        (pageText != null ? pageText : "（空页）");
+                runOnUiThread(() -> {
+                    etEditor.setText(displayText);
+                    updateStats();
+                    tvFileInfo.setText(currentFileName + " | " + formatFileSize(txtCacheFile.length()) +
+                            " | TXT | 第 " + page + "/" + txtTotalPages + " 页 | 点击跳转");
+                    tvFileInfo.setOnClickListener(v -> showTxtPageNav());
+                    hideProgress();
+                });
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    hideProgress();
+                    Toast.makeText(this, "读取第 " + page + " 页失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                });
+            }
+        });
+    }
+
+    /**
+     * 文本分页导航
+     */
+    private void showTxtPageNav() {
+        if (txtTotalPages <= 0) return;
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("文本导航（共" + txtTotalPages + "页，当前第" + txtCurrentPage + "页）");
+
+        List<String> itemList = new ArrayList<>();
+        if (txtCurrentPage > 1) {
+            itemList.add("上一页（第" + (txtCurrentPage - 1) + "页）");
+        }
+        if (txtCurrentPage < txtTotalPages) {
+            itemList.add("下一页（第" + (txtCurrentPage + 1) + "页）");
+        }
+        itemList.add("──────────");
+        itemList.add("跳转到指定页...");
+
+        final String[] items = itemList.toArray(new String[0]);
+        builder.setItems(items, (dialog, which) -> {
+            String item = items[which];
+            if (item.startsWith("上一页")) {
+                loadTxtPageAsync(txtCurrentPage - 1);
+            } else if (item.startsWith("下一页")) {
+                loadTxtPageAsync(txtCurrentPage + 1);
+            } else if (item.startsWith("跳转")) {
+                showTxtPageJumpDialog();
+            }
+        });
+        builder.setNegativeButton("关闭", null);
+        builder.show();
+    }
+
+    private void showTxtPageJumpDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("跳转到页面（1-" + txtTotalPages + "）");
+
+        // 如果页数太多，分段显示
+        if (txtTotalPages > 50) {
+            String[] ranges = new String[(txtTotalPages + 49) / 50];
+            for (int i = 0; i < ranges.length; i++) {
+                int start = i * 50 + 1;
+                int end = Math.min((i + 1) * 50, txtTotalPages);
+                ranges[i] = "第 " + start + "-" + end + " 页";
+            }
+            builder.setItems(ranges, (dialog, which) -> {
+                int startPage = which * 50 + 1;
+                showTxtPageRangeDialog(startPage, Math.min(startPage + 49, txtTotalPages));
+            });
+        } else {
+            String[] pageItems = new String[txtTotalPages];
+            for (int i = 0; i < txtTotalPages; i++) {
+                pageItems[i] = "第 " + (i + 1) + " 页（行 " + (i * TEXT_LINES_PER_PAGE + 1) + "-" +
+                        Math.min((i + 1) * TEXT_LINES_PER_PAGE, (int) txtTotalLines) + "）";
+            }
+            builder.setItems(pageItems, (dialog, which) -> {
+                loadTxtPageAsync(which + 1);
+            });
+        }
+        builder.setNegativeButton("关闭", null);
+        builder.show();
+    }
+
+    private void showTxtPageRangeDialog(int fromPage, int toPage) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("第 " + fromPage + "-" + toPage + " 页");
+        String[] items = new String[toPage - fromPage + 1];
+        for (int i = 0; i < items.length; i++) {
+            items[i] = "第 " + (fromPage + i) + " 页（行 " + ((fromPage + i - 1) * TEXT_LINES_PER_PAGE + 1) + "-" +
+                    Math.min((fromPage + i) * TEXT_LINES_PER_PAGE, (int) txtTotalLines) + "）";
+        }
+        builder.setItems(items, (dialog, which) -> {
+            loadTxtPageAsync(fromPage + which);
+        });
+        builder.setNegativeButton("关闭", null);
+        builder.show();
+    }
+
+    private void closeTxtCache() {
+        if (txtCacheFile != null && txtCacheFile.exists()) {
+            txtCacheFile.delete();
+            txtCacheFile = null;
+        }
+        txtTotalLines = 0;
+        txtCurrentPage = 1;
+        txtTotalPages = 1;
+        txtIsPaged = false;
     }
 
     private String readWithEncodingStream(Uri uri, String encoding) {
