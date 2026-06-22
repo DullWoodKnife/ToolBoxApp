@@ -52,9 +52,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 
-import nl.siegmann.epublib.domain.Book;
-import nl.siegmann.epublib.epub.EpubReader;
-
 import com.tom_roush.pdfbox.pdmodel.PDDocument;
 import com.tom_roush.pdfbox.text.PDFTextStripper;
 
@@ -618,42 +615,102 @@ public class TextEditorActivity extends BaseToolActivity {
     private String readEpub(Uri uri) {
         try (InputStream is = getContentResolver().openInputStream(uri)) {
             if (is == null) return "无法读取文件";
-            EpubReader epubReader = new EpubReader();
-            Book book = epubReader.readEpub(is);
+            java.util.zip.ZipInputStream zis = new java.util.zip.ZipInputStream(is);
             StringBuilder sb = new StringBuilder();
+            java.util.zip.ZipEntry entry;
+            boolean foundContent = false;
 
-            // 书名
-            sb.append("书名: ").append(book.getTitle() != null ? book.getTitle() : "未知").append("\n");
-            // 作者
-            if (book.getMetadata().getAuthors() != null) {
-                sb.append("作者: ");
-                for (String author : book.getMetadata().getAuthors()) {
-                    sb.append(author).append(" ");
-                }
-                sb.append("\n");
-            }
-            sb.append("\n");
+            // 先读取 container.xml 找到 content.opf 路径
+            String opfPath = "OEBPS/content.opf";
+            String baseDir = "OEBPS/";
 
-            // 读取所有章节内容
-            for (nl.siegmann.epublib.domain.SpineReference ref : book.getSpine().getSpineReferences()) {
-                try {
-                    nl.siegmann.epublib.domain.Resource resource = ref.getResource();
-                    if (resource.getMediaType() == nl.siegmann.epublib.domain.MediaType.XHTML) {
-                        String html = new String(resource.getData(), StandardCharsets.UTF_8);
-                        // 简单去除HTML标签提取纯文本
-                        String text = stripHtmlTags(html);
-                        if (!text.trim().isEmpty()) {
-                            sb.append(text).append("\n\n");
+            // 第一遍：找 container.xml 确定路径
+            java.util.zip.ZipInputStream zis2 = new java.util.zip.ZipInputStream(getContentResolver().openInputStream(uri));
+            while ((entry = zis2.getNextEntry()) != null) {
+                if (entry.getName().equals("META-INF/container.xml")) {
+                    byte[] data = readZipEntry(zis2);
+                    String xml = new String(data, StandardCharsets.UTF_8);
+                    // 提取 rootfile full-path
+                    int idx = xml.indexOf("full-path=\"");
+                    if (idx >= 0) {
+                        int end = xml.indexOf("\"", idx + 11);
+                        if (end > 0) {
+                            opfPath = xml.substring(idx + 11, end);
+                            int slashIdx = opfPath.lastIndexOf('/');
+                            if (slashIdx > 0) {
+                                baseDir = opfPath.substring(0, slashIdx + 1);
+                            } else {
+                                baseDir = "";
+                            }
                         }
                     }
-                } catch (Exception ignored) {
-                    // 跳过无法读取的章节
                 }
+            }
+            zis2.close();
+
+            sb.append("=== EPUB 文档 ===\n\n");
+
+            // 第二遍：读取所有 XHTML/HTML 内容文件
+            java.util.zip.ZipInputStream zis3 = new java.util.zip.ZipInputStream(getContentResolver().openInputStream(uri));
+            while ((entry = zis3.getNextEntry()) != null) {
+                String name = entry.getName();
+                if (name.equals(opfPath)) {
+                    // 读取 metadata
+                    byte[] data = readZipEntry(zis3);
+                    String opfXml = new String(data, StandardCharsets.UTF_8);
+                    String title = extractXmlTag(opfXml, "dc:title");
+                    if (!title.isEmpty()) sb.append("书名: ").append(title).append("\n");
+                    // 简单提取作者
+                    int authorIdx = opfXml.indexOf("<dc:creator");
+                    if (authorIdx < 0) authorIdx = opfXml.indexOf("<dc:author");
+                    if (authorIdx >= 0) {
+                        int tagEnd = opfXml.indexOf(">", authorIdx);
+                        int closeIdx = opfXml.indexOf("</dc:", tagEnd);
+                        if (closeIdx > tagEnd) {
+                            sb.append("作者: ").append(opfXml.substring(tagEnd + 1, closeIdx).trim()).append("\n");
+                        }
+                    }
+                    sb.append("\n");
+                } else if (name.endsWith(".xhtml") || name.endsWith(".html") || name.endsWith(".htm")) {
+                    byte[] data = readZipEntry(zis3);
+                    String html = new String(data, StandardCharsets.UTF_8);
+                    String text = stripHtmlTags(html);
+                    if (!text.trim().isEmpty()) {
+                        sb.append(text).append("\n\n");
+                        foundContent = true;
+                    }
+                }
+            }
+            zis3.close();
+
+            if (!foundContent) {
+                return "EPUB 文件已加载，但未找到可读取的文本内容。";
             }
             return sb.toString();
         } catch (Exception e) {
             return "读取EPUB失败: " + e.getMessage();
         }
+    }
+
+    private byte[] readZipEntry(java.util.zip.ZipInputStream zis) throws Exception {
+        java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+        byte[] buffer = new byte[4096];
+        int len;
+        while ((len = zis.read(buffer)) > 0) {
+            baos.write(buffer, 0, len);
+        }
+        return baos.toByteArray();
+    }
+
+    private String extractXmlTag(String xml, String tag) {
+        int start = xml.indexOf("<" + tag);
+        if (start < 0) return "";
+        int contentStart = xml.indexOf(">", start);
+        if (contentStart < 0) return "";
+        contentStart++;
+        int end = xml.indexOf("</" + tag, contentStart);
+        if (end < 0) return "";
+        return xml.substring(contentStart, end).trim();
     }
 
     // ==================== PDF 格式 ====================

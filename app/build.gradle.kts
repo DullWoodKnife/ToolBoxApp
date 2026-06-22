@@ -103,12 +103,7 @@ dependencies {
     implementation("org.apache.poi:poi-ooxml:5.2.5")
     implementation("org.apache.poi:poi-scratchpad:5.2.5")
 
-    // EPUB (exclude conflicting transitive dependencies)
-    implementation("nl.siegmann.epublib:epublib-core:3.1", {
-        exclude(group = "org.slf4j")
-        exclude(group = "xmlpull")
-        exclude(group = "xpp3")
-    })
+    // EPUB - 使用内置ZIP解析，无需额外依赖
 
     // PDF
     implementation("com.tom-roush:pdfbox-android:2.0.27.0")

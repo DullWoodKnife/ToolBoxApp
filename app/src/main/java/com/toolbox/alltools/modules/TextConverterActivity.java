@@ -63,9 +63,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import nl.siegmann.epublib.domain.Book;
-import nl.siegmann.epublib.epub.EpubReader;
-
 import com.tom_roush.pdfbox.pdmodel.PDDocument;
 import com.tom_roush.pdfbox.text.PDFTextStripper;
 
@@ -809,26 +806,37 @@ public class TextConverterActivity extends BaseToolActivity {
     private String readEpub(Uri uri) {
         try (InputStream is = getContentResolver().openInputStream(uri)) {
             if (is == null) return "无法读取文件";
-            EpubReader epubReader = new EpubReader();
-            Book book = epubReader.readEpub(is);
+            java.util.zip.ZipInputStream zis = new java.util.zip.ZipInputStream(is);
             StringBuilder sb = new StringBuilder();
-            sb.append("书名: ").append(book.getTitle() != null ? book.getTitle() : "未知").append("\n\n");
-            for (nl.siegmann.epublib.domain.SpineReference ref : book.getSpine().getSpineReferences()) {
-                try {
-                    nl.siegmann.epublib.domain.Resource resource = ref.getResource();
-                    if (resource.getMediaType() == nl.siegmann.epublib.domain.MediaType.XHTML) {
-                        String html = new String(resource.getData(), StandardCharsets.UTF_8);
-                        String text = stripHtmlTags(html);
-                        if (!text.trim().isEmpty()) {
-                            sb.append(text).append("\n\n");
-                        }
+            java.util.zip.ZipEntry entry;
+
+            sb.append("=== EPUB 文档 ===\n\n");
+
+            while ((entry = zis.getNextEntry()) != null) {
+                String name = entry.getName();
+                if (name.endsWith(".xhtml") || name.endsWith(".html") || name.endsWith(".htm")) {
+                    byte[] data = readZipEntryBytes(zis);
+                    String html = new String(data, StandardCharsets.UTF_8);
+                    String text = stripHtmlTags(html);
+                    if (!text.trim().isEmpty()) {
+                        sb.append(text).append("\n\n");
                     }
-                } catch (Exception ignored) {}
+                }
             }
             return sb.toString();
         } catch (Exception e) {
             return "读取EPUB失败: " + e.getMessage();
         }
+    }
+
+    private byte[] readZipEntryBytes(java.util.zip.ZipInputStream zis) throws Exception {
+        java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+        byte[] buffer = new byte[4096];
+        int len;
+        while ((len = zis.read(buffer)) > 0) {
+            baos.write(buffer, 0, len);
+        }
+        return baos.toByteArray();
     }
 
     private String readPdf(Uri uri) {
