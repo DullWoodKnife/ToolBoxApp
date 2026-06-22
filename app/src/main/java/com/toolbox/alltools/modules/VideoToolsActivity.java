@@ -318,19 +318,26 @@ public class VideoToolsActivity extends BaseToolActivity {
                 } else {
                     // 使用默认路径 sdcard/ToolBox/VideoTools/
                     File moduleDir = AppConfig.getModuleDir(AppConfig.DIR_VIDEO_TOOLS);
+                    if (!moduleDir.exists()) {
+                        boolean created = moduleDir.mkdirs();
+                        if (!created) {
+                            throw new Exception("无法创建输出目录: " + moduleDir.getAbsolutePath() + "，请检查存储权限");
+                        }
+                    }
+                    if (!moduleDir.canWrite()) {
+                        throw new Exception("输出目录无写入权限: " + moduleDir.getAbsolutePath());
+                    }
                     String baseName = selectedFileName;
                     int dotIndex = baseName.lastIndexOf('.');
                     if (dotIndex > 0) baseName = baseName.substring(0, dotIndex);
+                    // 过滤文件名中的非法字符
+                    baseName = baseName.replaceAll("[^\\w\\u4e00-\\u9fa5\\-\\.]", "_");
                     String fileName = baseName + "_converted." + targetFormat.toLowerCase();
                     outputFile = new File(moduleDir, fileName);
                     int counter = 1;
                     while (outputFile.exists()) {
                         outputFile = new File(moduleDir, baseName + "_converted(" + counter + ")." + targetFormat.toLowerCase());
                         counter++;
-                    }
-                    File parentDir = outputFile.getParentFile();
-                    if (parentDir != null && !parentDir.exists()) {
-                        parentDir.mkdirs();
                     }
                     outputStream = new FileOutputStream(outputFile);
                     outputFilePath = outputFile.getAbsolutePath();

@@ -29,13 +29,30 @@ public class AppConfig {
 
     /**
      * 获取默认工作目录 File 对象
+     * 优先使用外部存储根目录，如果无权限则使用应用私有目录
      */
     public static File getWorkDir() {
-        File workDir = new File(Environment.getExternalStorageDirectory(), DEFAULT_WORK_DIR);
-        if (!workDir.exists()) {
-            workDir.mkdirs();
+        // 尝试使用外部存储根目录 sdcard/ToolBox/
+        File externalDir = Environment.getExternalStorageDirectory();
+        if (externalDir != null && externalDir.canWrite()) {
+            File workDir = new File(externalDir, DEFAULT_WORK_DIR);
+            if (workDir.exists() || workDir.mkdirs()) {
+                return workDir;
+            }
         }
-        return workDir;
+        // 备用：使用应用外部私有目录（无需额外权限）
+        android.content.Context ctx = com.toolbox.alltools.ToolApplication.getInstance();
+        if (ctx != null) {
+            File appExternalDir = ctx.getExternalFilesDir(null);
+            if (appExternalDir != null) {
+                File workDir = new File(appExternalDir, DEFAULT_WORK_DIR);
+                if (workDir.exists() || workDir.mkdirs()) {
+                    return workDir;
+                }
+            }
+        }
+        // 最后备用：使用外部存储根目录（即使可能失败）
+        return new File(externalDir, DEFAULT_WORK_DIR);
     }
 
     /**
@@ -44,7 +61,18 @@ public class AppConfig {
     public static File getModuleDir(String moduleDir) {
         File dir = new File(getWorkDir(), moduleDir);
         if (!dir.exists()) {
-            dir.mkdirs();
+            boolean success = dir.mkdirs();
+            if (!success) {
+                // 如果创建失败，尝试在应用私有目录创建
+                android.content.Context ctx = com.toolbox.alltools.ToolApplication.getInstance();
+                if (ctx != null) {
+                    File fallbackDir = ctx.getExternalFilesDir(moduleDir);
+                    if (fallbackDir != null) {
+                        if (!fallbackDir.exists()) fallbackDir.mkdirs();
+                        return fallbackDir;
+                    }
+                }
+            }
         }
         return dir;
     }
