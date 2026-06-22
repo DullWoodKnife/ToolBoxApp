@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 深色按钮样式 -->
+    <style name="DarkButtonStyle" parent="Widget.MaterialComponents.Button">
+        <item name="android:textColor">@color/button_text</item>
+        <item name="android:padding">12dp</item>
+        <item name="cornerRadius">8dp</item>
+        <item name="backgroundTint">@color/button_bg</item>
+    </style>
+
+    <!-- 深色输入框样式 -->
+    <style name="DarkEditTextStyle" parent="Widget.MaterialComponents.EditText">
+        <item name="android:background">@drawable/bg_edittext</item>
+        <item name="android:textColor">@color/text_white</item>
+        <item name="android:textColorHint">@color/text_secondary</item>
+        <item name="android:padding">12dp</item>
+    </style>
+</resources>

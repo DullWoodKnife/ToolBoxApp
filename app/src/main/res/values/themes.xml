@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- 深色 NoActionBar 基础主题 -->
+    <style name="Theme.ToolBoxApp" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- 主色调 -->
+        <item name="colorPrimary">@color/accent</item>
+        <item name="colorPrimaryVariant">@color/accent_dark</item>
+        <item name="colorOnPrimary">@color/primary_background</item>
+
+        <!-- 次要色调 -->
+        <item name="colorSecondary">@color/accent_light</item>
+        <item name="colorSecondaryVariant">@color/accent</item>
+        <item name="colorOnSecondary">@color/primary_background</item>
+
+        <!-- 背景色 -->
+        <item name="android:windowBackground">@color/primary_background</item>
+        <item name="colorSurface">@color/card_dark</item>
+        <item name="colorOnSurface">@color/text_white</item>
+
+        <!-- 状态栏与导航栏 -->
+        <item name="android:statusBarColor">@color/status_bar</item>
+        <item name="android:navigationBarColor">@color/navigation_bar</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+
+        <!-- 文字颜色 -->
+        <item name="android:textColorPrimary">@color/text_white</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
+
+        <!-- 控件默认样式 -->
+        <item name="cardBackgroundColor">@color/card_dark</item>
+        <item name="dividerColor">@color/divider</item>
+    </style>
+
+</resources>

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <!-- Globe outline -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#D4A574"
+        android:strokeWidth="2"
+        android:pathData="M24,4 C35,4 44,13 44,24 C44,35 35,44 24,44 C13,44 4,35 4,24 C4,13 13,4 24,4 Z" />
+    <!-- Globe horizontal lines -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#5C5049"
+        android:strokeWidth="1.5"
+        android:pathData="M6,16 L42,16 M6,32 L42,32" />
+    <!-- Globe vertical ellipse -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#5C5049"
+        android:strokeWidth="1.5"
+        android:pathData="M24,4 C17,10 14,17 14,24 C14,31 17,38 24,44 M24,4 C31,10 34,17 34,24 C34,31 31,38 24,44" />
+    <!-- Web lines (spider web) -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#D4A574"
+        android:strokeWidth="1"
+        android:pathData="M24,24 L10,8 M24,24 L38,8 M24,24 L44,20 M24,24 L44,28 M24,24 L38,40 M24,24 L10,40 M24,24 L4,20 M24,24 L4,28" />
+    <!-- Center dot -->
+    <path
+        android:fillColor="#D4A574"
+        android:pathData="M22,22 L26,22 L26,26 L22,26 Z" />
+    <!-- Magnifying glass -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:pathData="M30,30 L40,40 M24,18 C28,18 32,22 32,26 C32,30 28,34 24,34 C20,34 16,30 16,26 C16,22 20,18 24,18 Z" />
+</vector>

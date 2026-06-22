@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#D4A574</color>
+    <color name="colorPrimaryDark">#B8895A</color>
+    <color name="colorAccent">#D4A574</color>
+    <color name="bg_main">#1A1A1A</color>
+    <color name="card_dark">#4A4039</color>
+    <color name="card_light">#5C5049</color>
+    <color name="text_white">#FFFFFF</color>
+    <color name="text_secondary">#B0A89E</color>
+    <color name="accent">#D4A574</color>
+    <color name="input_bg">#2D2D2D</color>
+    <color name="button_bg">#D4A574</color>
+    <color name="button_text">#1A1A1A</color>
+    <color name="card_pressed">#3A3029</color>
+
+    <!-- themes.xml 引用的颜色 -->
+    <color name="accent_dark">#B8895A</color>
+    <color name="accent_light">#E8C9A8</color>
+    <color name="primary_background">#1A1A1A</color>
+    <color name="status_bar">#1A1A1A</color>
+    <color name="navigation_bar">#1A1A1A</color>
+    <color name="divider">#3A3029</color>
+</resources>

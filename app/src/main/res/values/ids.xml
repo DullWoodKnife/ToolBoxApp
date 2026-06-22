@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- BaseToolActivity 使用的可选ID -->
+    <item type="id" name="toolbar" />
+    <item type="id" name="btn_back" />
+</resources>

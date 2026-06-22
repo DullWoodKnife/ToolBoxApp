@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <!-- Document body -->
+    <path
+        android:fillColor="#5C5049"
+        android:strokeColor="#D4A574"
+        android:strokeWidth="1.5"
+        android:pathData="M12,6 L30,6 L36,12 L36,42 L12,42 Z" />
+    <!-- Document fold -->
+    <path
+        android:fillColor="#4A4039"
+        android:strokeColor="#D4A574"
+        android:strokeWidth="1.5"
+        android:pathData="M30,6 L30,12 L36,12" />
+    <!-- Text lines -->
+    <path
+        android:fillColor="#D4A574"
+        android:strokeWidth="1.5"
+        android:strokeColor="#D4A574"
+        android:pathData="M16,18 L32,18 M16,23 L28,23 M16,28 L32,28 M16,33 L24,33" />
+    <!-- Pen -->
+    <path
+        android:fillColor="#D4A574"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1"
+        android:pathData="M34,2 L44,12 L38,18 L28,8 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M34,2 L28,8 L38,18 Z" />
+    <path
+        android:strokeColor="#D4A574"
+        android:strokeWidth="1.5"
+        android:pathData="M28,8 L38,18"
+        android:fillColor="@android:color/transparent" />
+</vector>
