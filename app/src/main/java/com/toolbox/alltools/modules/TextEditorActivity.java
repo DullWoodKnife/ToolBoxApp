@@ -45,6 +45,8 @@ import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFRow;
 import org.apache.poi.xssf.usermodel.XSSFCell;
 
+import com.tom_roush.pdfbox.android.PDFBoxResourceLoader;
+import com.tom_roush.pdfbox.io.MemoryUsageSetting;
 import com.tom_roush.pdfbox.pdmodel.PDDocument;
 import com.tom_roush.pdfbox.text.PDFTextStripper;
 
@@ -67,6 +69,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 import java.util.zip.ZipInputStream;
 
 /**
@@ -128,6 +131,7 @@ public class TextEditorActivity extends BaseToolActivity {
     private List<EpubChapter> epubChapters = new ArrayList<>();
     private int epubCurrentChapter = 0;
     private String epubBaseDir = "";
+    private File epubCacheFile = null; // EPUB 缓存文件，用于 ZipFile 随机访问
 
     // MOBI 缓存
     private File mobiCacheFile = null;
@@ -345,9 +349,7 @@ public class TextEditorActivity extends BaseToolActivity {
         closePdfCache();
         closeMobiCache();
         closeTxtCache();
-        epubChapters.clear();
-        epubCurrentChapter = 0;
-        epubBaseDir = "";
+        closeEpubCache();
     }
 
     private void closePdfCache() {
@@ -605,7 +607,15 @@ public class TextEditorActivity extends BaseToolActivity {
         final EpubChapter chapter = epubChapters.get(chapterIndex);
         executorService.execute(() -> {
             try {
-                String html = readZipEntryByName(currentFileUri, chapter.entryName, 2 * 1024 * 1024);
+                String html = null;
+                if (epubCacheFile != null && epubCacheFile.exists()) {
+                    try (ZipFile zf = new ZipFile(epubCacheFile, StandardCharsets.UTF_8)) {
+                        ZipEntry entry = zf.getEntry(chapter.entryName);
+                        if (entry != null) {
+                            html = readZipFileEntry(zf, entry, 2 * 1024 * 1024);
+                        }
+                    }
+                }
                 if (html == null) {
                     runOnUiThread(() -> {
                         hideProgress();
@@ -1181,74 +1191,85 @@ public class TextEditorActivity extends BaseToolActivity {
         try {
             epubChapters.clear();
             epubBaseDir = "";
+            closeEpubCache();
 
-            // 解析 container.xml 获取 OPF 路径
-            String opfPath = "";
+            // 步骤1：将 EPUB 复制到临时缓存文件（用于 ZipFile 随机访问）
+            epubCacheFile = File.createTempFile("epub_cache_", ".epub", getCacheDir());
             try (InputStream is = getContentResolver().openInputStream(uri);
-                 ZipInputStream zis = new ZipInputStream(is)) {
-                ZipEntry entry;
-                while ((entry = zis.getNextEntry()) != null) {
-                    if ("META-INF/container.xml".equals(entry.getName())) {
-                        String xml = readZipEntryString(zis, 64 * 1024);
-                        int idx = xml.indexOf("full-path=\"");
-                        if (idx >= 0) {
-                            int end = xml.indexOf("\"", idx + 11);
-                            if (end > 0) {
-                                opfPath = xml.substring(idx + 11, end);
-                                int slashIdx = opfPath.lastIndexOf('/');
-                                epubBaseDir = slashIdx > 0 ? opfPath.substring(0, slashIdx + 1) : "";
-                            }
+                 OutputStream os = new FileOutputStream(epubCacheFile)) {
+                if (is == null) return "无法读取文件";
+                byte[] buffer = new byte[BUFFER_SIZE];
+                int len;
+                while ((len = is.read(buffer)) != -1) {
+                    os.write(buffer, 0, len);
+                }
+            }
+
+            // 步骤2：使用 ZipFile 随机访问解析 container.xml
+            String opfPath = "";
+            try (ZipFile zf = new ZipFile(epubCacheFile, StandardCharsets.UTF_8)) {
+                ZipEntry containerEntry = zf.getEntry("META-INF/container.xml");
+                if (containerEntry != null) {
+                    String xml = readZipFileEntry(zf, containerEntry, 64 * 1024);
+                    int idx = xml.indexOf("full-path=\"");
+                    if (idx >= 0) {
+                        int end = xml.indexOf("\"", idx + 11);
+                        if (end > 0) {
+                            opfPath = xml.substring(idx + 11, end);
+                            int slashIdx = opfPath.lastIndexOf('/');
+                            epubBaseDir = slashIdx > 0 ? opfPath.substring(0, slashIdx + 1) : "";
                         }
-                        break;
                     }
                 }
             }
 
-            // 解析 OPF
+            // 步骤3：使用 ZipFile 随机访问解析 OPF
             java.util.Map<String, String> manifestIdToHref = new java.util.HashMap<>();
             List<String> spineOrder = new ArrayList<>();
             String bookTitle = "";
 
             if (!opfPath.isEmpty()) {
-                try (InputStream is = getContentResolver().openInputStream(uri);
-                     ZipInputStream zis = new ZipInputStream(is)) {
-                    ZipEntry entry;
-                    while ((entry = zis.getNextEntry()) != null) {
-                        if (entry.getName().equals(opfPath)) {
-                            String opfXml = readZipEntryString(zis, 256 * 1024);
-                            bookTitle = extractXmlTag(opfXml, "dc:title");
-                            manifestIdToHref = extractManifest(opfXml);
-                            spineOrder = extractSpineOrder(opfXml, manifestIdToHref);
-                            break;
-                        }
+                try (ZipFile zf = new ZipFile(epubCacheFile, StandardCharsets.UTF_8)) {
+                    ZipEntry opfEntry = zf.getEntry(opfPath);
+                    if (opfEntry != null) {
+                        String opfXml = readZipFileEntry(zf, opfEntry, 256 * 1024);
+                        bookTitle = extractXmlTag(opfXml, "dc:title");
+                        manifestIdToHref = extractManifest(opfXml);
+                        spineOrder = extractSpineOrder(opfXml, manifestIdToHref);
                     }
                 }
             }
 
-            // 按 spine 顺序构建章节列表（只保存元数据，不加载内容）
+            // 步骤4：构建章节列表（只保存元数据，使用 ZipFile 快速获取标题）
             if (!spineOrder.isEmpty()) {
-                for (String href : spineOrder) {
-                    String entryName = epubBaseDir + href;
-                    if (entryName.startsWith("/")) entryName = entryName.substring(1);
+                try (ZipFile zf = new ZipFile(epubCacheFile, StandardCharsets.UTF_8)) {
+                    for (String href : spineOrder) {
+                        String entryName = epubBaseDir + href;
+                        if (entryName.startsWith("/")) entryName = entryName.substring(1);
 
-                    // 预读取标题（只读前4KB）
-                    String preview = readZipEntryByName(uri, entryName, 4096);
-                    String title = preview != null ? extractChapterTitle(preview) : "";
-                    if (title.isEmpty()) {
-                        int slashPos = entryName.lastIndexOf('/');
-                        title = slashPos >= 0 ? entryName.substring(slashPos + 1) : entryName;
+                        // 快速获取标题（只读前4KB）
+                        String title = "";
+                        ZipEntry chEntry = zf.getEntry(entryName);
+                        if (chEntry != null) {
+                            String preview = readZipFileEntry(zf, chEntry, 4096);
+                            title = preview != null ? extractChapterTitle(preview) : "";
+                        }
+                        if (title.isEmpty()) {
+                            int slashPos = entryName.lastIndexOf('/');
+                            title = slashPos >= 0 ? entryName.substring(slashPos + 1) : entryName;
+                        }
+                        epubChapters.add(new EpubChapter(title, entryName));
                     }
-                    epubChapters.add(new EpubChapter(title, entryName));
                 }
             } else {
                 // 回退：按 ZIP 条目顺序
-                try (InputStream is = getContentResolver().openInputStream(uri);
-                     ZipInputStream zis = new ZipInputStream(is)) {
-                    ZipEntry entry;
-                    while ((entry = zis.getNextEntry()) != null) {
+                try (ZipFile zf = new ZipFile(epubCacheFile, StandardCharsets.UTF_8)) {
+                    java.util.Enumeration<? extends ZipEntry> entries = zf.entries();
+                    while (entries.hasMoreElements()) {
+                        ZipEntry entry = entries.nextElement();
                         String name = entry.getName().toLowerCase();
                         if (name.endsWith(".xhtml") || name.endsWith(".html") || name.endsWith(".htm")) {
-                            String preview = readZipEntryString(zis, 4096);
+                            String preview = readZipFileEntry(zf, entry, 4096);
                             String title = extractChapterTitle(preview);
                             if (title.isEmpty()) {
                                 int slashPos = entry.getName().lastIndexOf('/');
@@ -1260,19 +1281,52 @@ public class TextEditorActivity extends BaseToolActivity {
                 }
             }
 
-            // 加载第一章
+            // 步骤5：加载第一章
             if (!epubChapters.isEmpty()) {
                 epubCurrentChapter = 0;
-                String firstHtml = readZipEntryByName(uri, epubChapters.get(0).entryName, 2 * 1024 * 1024);
-                String firstText = firstHtml != null ? stripHtmlTags(firstHtml) : "";
-                return (bookTitle.isEmpty() ? "" : "书名: " + bookTitle + "\n\n") +
-                        "━━━ " + epubChapters.get(0).title + " ━━━\n\n" +
-                        (firstText.trim().isEmpty() ? "（本章无文本内容）" : firstText);
+                try (ZipFile zf = new ZipFile(epubCacheFile, StandardCharsets.UTF_8)) {
+                    ZipEntry firstEntry = zf.getEntry(epubChapters.get(0).entryName);
+                    String firstHtml = firstEntry != null ? readZipFileEntry(zf, firstEntry, 2 * 1024 * 1024) : null;
+                    String firstText = firstHtml != null ? stripHtmlTags(firstHtml) : "";
+                    return (bookTitle.isEmpty() ? "" : "书名: " + bookTitle + "\n\n") +
+                            "━━━ " + epubChapters.get(0).title + " ━━━\n\n" +
+                            (firstText.trim().isEmpty() ? "（本章无文本内容）" : firstText);
+                }
             }
             return "EPUB 文件为空";
         } catch (Exception e) {
             return "读取EPUB失败: " + e.getMessage();
         }
+    }
+
+    /**
+     * 从 ZipFile 中读取指定条目内容（随机访问，不需要遍历）
+     */
+    private String readZipFileEntry(ZipFile zf, ZipEntry entry, int maxBytes) throws Exception {
+        if (entry == null || entry.getSize() == 0) return "";
+        try (InputStream is = zf.getInputStream(entry)) {
+            byte[] buffer = new byte[8192];
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            int len;
+            long totalRead = 0;
+            while ((len = is.read(buffer)) > 0) {
+                int toWrite = (int) Math.min(len, maxBytes - totalRead);
+                baos.write(buffer, 0, toWrite);
+                totalRead += toWrite;
+                if (totalRead >= maxBytes) break;
+            }
+            return baos.toString(StandardCharsets.UTF_8.name());
+        }
+    }
+
+    private void closeEpubCache() {
+        if (epubCacheFile != null && epubCacheFile.exists()) {
+            epubCacheFile.delete();
+            epubCacheFile = null;
+        }
+        epubChapters.clear();
+        epubCurrentChapter = 0;
+        epubBaseDir = "";
     }
 
     private java.util.Map<String, String> extractManifest(String opfXml) {
@@ -1349,32 +1403,6 @@ public class TextEditorActivity extends BaseToolActivity {
         return "";
     }
 
-    private String readZipEntryByName(Uri uri, String entryName, int maxBytes) {
-        try (InputStream is = getContentResolver().openInputStream(uri);
-             ZipInputStream zis = new ZipInputStream(is)) {
-            ZipEntry entry;
-            while ((entry = zis.getNextEntry()) != null) {
-                if (entry.getName().equals(entryName)) {
-                    return readZipEntryString(zis, maxBytes);
-                }
-            }
-        } catch (Exception e) {
-            android.util.Log.e("TextEditor", "读取ZIP条目失败: " + entryName, e);
-        }
-        return null;
-    }
-
-    private String readZipEntryString(ZipInputStream zis, int maxBytes) throws Exception {
-        byte[] buffer = new byte[8192];
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        int len;
-        while ((len = zis.read(buffer)) > 0) {
-            baos.write(buffer, 0, len);
-            if (baos.size() >= maxBytes) break;
-        }
-        return baos.toString(StandardCharsets.UTF_8.name());
-    }
-
     private String extractXmlTag(String xml, String tag) {
         int start = xml.indexOf("<" + tag);
         if (start < 0) return "";
@@ -1389,12 +1417,14 @@ public class TextEditorActivity extends BaseToolActivity {
     // ==================== PDF 格式（单页加载）====================
 
     /**
-     * 初始化 PDF：缓存到临时文件，加载文档，返回第一页内容
-     * 不一次性提取全部页面
+     * 初始化 PDF：缓存到临时文件，使用 MemoryUsageSetting 限制内存，加载文档，返回第一页内容
      */
     private String initPdf(Uri uri) {
         closePdfCache();
         try {
+            // 初始化 PDFBox 资源加载器（必须在第一次使用前调用）
+            PDFBoxResourceLoader.init(getApplicationContext());
+
             // 复制到临时文件
             pdfCacheFile = File.createTempFile("pdf_cache_", ".pdf", getCacheDir());
             try (InputStream is = getContentResolver().openInputStream(uri);
@@ -1407,12 +1437,15 @@ public class TextEditorActivity extends BaseToolActivity {
                 }
             }
 
-            // 加载文档
+            // 加载文档：使用 MemoryUsageSetting 限制内存为 16MB，超出部分使用磁盘缓存
+            MemoryUsageSetting memSetting = MemoryUsageSetting.setupMixed(16 * 1024 * 1024);
+            memSetting.setTempDir(getCacheDir());
+
             try {
-                pdfDocument = PDDocument.load(pdfCacheFile);
+                pdfDocument = PDDocument.load(pdfCacheFile, memSetting);
             } catch (Exception e) {
                 try {
-                    pdfDocument = PDDocument.load(pdfCacheFile, "");
+                    pdfDocument = PDDocument.load(pdfCacheFile, "", memSetting);
                 } catch (Exception e2) {
                     closePdfCache();
                     return "读取PDF失败: 无法解析PDF文件，文件可能已损坏或加密";
@@ -1443,35 +1476,30 @@ public class TextEditorActivity extends BaseToolActivity {
     // ==================== AZW3/MOBI 格式（流式读取）====================
 
     /**
-     * 初始化 MOBI：复制到临时文件，流式解析第一块内容
+     * 初始化 MOBI/AZW3：流式解析，不复制整个文件到临时文件
      */
     private String initMobi(Uri uri) {
         closeMobiCache();
         try {
-            mobiCacheFile = File.createTempFile("mobi_cache_", ".bin", getCacheDir());
-            try (InputStream is = getContentResolver().openInputStream(uri);
-                 OutputStream os = new FileOutputStream(mobiCacheFile)) {
-                if (is == null) return "无法读取文件";
-                byte[] buffer = new byte[BUFFER_SIZE];
-                int len;
-                while ((len = is.read(buffer)) != -1) {
-                    os.write(buffer, 0, len);
+            // 尝试直接获取文件路径（避免复制大文件）
+            File directFile = uriToFile(uri);
+            if (directFile != null && directFile.exists() && directFile.canRead()) {
+                long fileSize = directFile.length();
+                String text = parseMobiFileStream(directFile, fileSize);
+                if (!text.trim().isEmpty()) {
+                    return text;
                 }
+                return "AZW3/MOBI格式文件已加载。\n\n" +
+                        "该格式为Amazon Kindle专有二进制格式。\n" +
+                        "建议：使用Calibre将AZW3/MOBI转换为EPUB或TXT格式后打开。\n\n" +
+                        "文件大小: " + formatFileSize(fileSize);
             }
 
-            long fileSize = mobiCacheFile.length();
-            String text = parseMobiFileStream(mobiCacheFile, fileSize);
-
-            if (!text.trim().isEmpty()) {
-                return text;
-            }
-            return "AZW3/MOBI格式文件已加载。\n\n" +
-                    "该格式为Amazon Kindle专有二进制格式。\n" +
-                    "建议：使用Calibre将AZW3/MOBI转换为EPUB或TXT格式后打开。\n\n" +
-                    "文件大小: " + formatFileSize(fileSize);
+            // Content URI：只能流式读取，不复制整个文件
+            return parseMobiFromStream(uri);
         } catch (OutOfMemoryError e) {
             closeMobiCache();
-            return "读取AZW3/MOBI失败: 内存不足";
+            return "读取AZW3/MOBI失败: 内存不足，文件过大";
         } catch (Exception e) {
             closeMobiCache();
             return "读取AZW3/MOBI失败: " + e.getMessage();
@@ -1479,7 +1507,88 @@ public class TextEditorActivity extends BaseToolActivity {
     }
 
     /**
-     * 流式解析 MOBI 文件，不一次性加载全部内容到内存
+     * 从 Content URI 流式解析 MOBI（不复制整个文件）
+     */
+    private String parseMobiFromStream(Uri uri) throws Exception {
+        // 只读取前 64KB 判断文件类型
+        byte[] header = new byte[78];
+        int headerRead = 0;
+        try (InputStream is = getContentResolver().openInputStream(uri)) {
+            if (is == null) return "无法读取文件";
+            headerRead = is.read(header);
+        }
+        if (headerRead < 78) {
+            return "AZW3/MOBI格式文件已加载。\n\n文件太小，无法解析。";
+        }
+
+        String palmType = new String(header, 60, 8, StandardCharsets.ISO_8859_1).trim();
+
+        // 流式搜索 HTML 内容（只读前 2MB）
+        StringBuilder sb = new StringBuilder(64 * 1024);
+        try (InputStream is = getContentResolver().openInputStream(uri)) {
+            if (is == null) return "无法读取文件";
+            byte[] buffer = new byte[64 * 1024]; // 64KB 缓冲区
+            int bytesRead;
+            long totalRead = 0;
+            long maxRead = 2 * 1024 * 1024; // 最多读 2MB
+
+            // 在缓冲区中搜索 HTML 标签
+            StringBuilder chunkBuilder = new StringBuilder();
+            boolean foundHtml = false;
+
+            while ((bytesRead = is.read(buffer)) > 0 && totalRead < maxRead) {
+                totalRead += bytesRead;
+                String chunk = new String(buffer, 0, bytesRead, StandardCharsets.ISO_8859_1);
+                chunkBuilder.append(chunk);
+
+                // 检查是否找到 HTML 内容
+                String lower = chunkBuilder.toString().toLowerCase();
+                int htmlStart = lower.indexOf("<html");
+                if (htmlStart < 0) htmlStart = lower.indexOf("<body");
+                if (htmlStart < 0) htmlStart = lower.indexOf("<?xml");
+
+                if (htmlStart >= 0) {
+                    foundHtml = true;
+                    String html = chunkBuilder.substring(htmlStart,
+                            Math.min(chunkBuilder.length(), htmlStart + 100 * 1024)); // 最多取 100KB 文本
+                    sb.append(stripHtmlTags(html));
+                    break;
+                }
+
+                // 保持 chunkBuilder 不超过 256KB
+                if (chunkBuilder.length() > 256 * 1024) {
+                    chunkBuilder.delete(0, chunkBuilder.length() / 2);
+                }
+            }
+
+            if (!foundHtml) {
+                // 没找到 HTML，提取可读文本
+                String remaining = chunkBuilder.toString();
+                sb.append(extractReadableText(remaining.getBytes(StandardCharsets.ISO_8859_1),
+                        remaining.length()));
+            }
+        }
+
+        if (sb.length() == 0) {
+            return "AZW3/MOBI格式文件已加载。\n\n" +
+                    "该格式为Amazon Kindle专有二进制格式。\n" +
+                    "建议：使用Calibre将AZW3/MOBI转换为EPUB或TXT格式后打开。";
+        }
+        return sb.toString();
+    }
+
+    /**
+     * 尝试将 Uri 转换为 File（仅支持 file:// scheme）
+     */
+    private File uriToFile(Uri uri) {
+        if ("file".equals(uri.getScheme())) {
+            return new File(uri.getPath());
+        }
+        return null;
+    }
+
+    /**
+     * 流式解析 MOBI 文件，使用 RandomAccessFile 随机访问
      */
     private String parseMobiFileStream(File file, long fileSize) throws Exception {
         RandomAccessFile raf = new RandomAccessFile(file, "r");
@@ -1489,67 +1598,118 @@ public class TextEditorActivity extends BaseToolActivity {
             raf.readFully(header);
 
             String palmType = new String(header, 60, 8, StandardCharsets.ISO_8859_1).trim();
-            if (!"BOOKMOBI".equals(palmType)) {
-                // 非标准 MOBI，流式搜索 HTML 内容
+
+            if ("BOOKMOBI".equals(palmType)) {
+                return parseStandardMobi(raf, file, fileSize);
+            } else {
+                // 非标准 MOBI/AZW3，流式搜索 HTML 内容
                 return searchHtmlInFileStream(raf, fileSize);
             }
-
-            int numRecords = ((header[76] & 0xFF) << 8) | (header[77] & 0xFF);
-            raf.seek(78 + numRecords * 8);
-
-            byte[] palmDocHeader = new byte[16];
-            raf.readFully(palmDocHeader);
-
-            // 流式搜索 HTML 标签（只搜索前 4MB）
-            raf.seek(0);
-            long searchLimit = Math.min(fileSize, 4 * 1024 * 1024);
-            byte[] searchBuffer = new byte[(int) searchLimit];
-            int bytesRead = raf.read(searchBuffer);
-
-            String content = findHtmlContent(searchBuffer, bytesRead);
-            if (!content.trim().isEmpty()) {
-                return content;
-            }
-
-            // 搜索文件后半部分
-            long searchStart = Math.max(0, fileSize / 4);
-            raf.seek(searchStart);
-            long tailSize = Math.min(fileSize - searchStart, 2 * 1024 * 1024);
-            byte[] tailBuffer = new byte[(int) tailSize];
-            int tailRead = raf.read(tailBuffer);
-            content = extractReadableText(tailBuffer, tailRead);
-            if (!content.trim().isEmpty()) {
-                return content;
-            }
-
-            return "";
         } finally {
             raf.close();
         }
     }
 
-    private String searchHtmlInFileStream(RandomAccessFile raf, long fileSize) throws Exception {
-        long searchLimit = Math.min(fileSize, 4 * 1024 * 1024);
-        byte[] buffer = new byte[(int) searchLimit];
-        raf.seek(0);
-        int bytesRead = raf.read(buffer);
+    /**
+     * 解析标准 MOBI 格式（BOOKMOBI）
+     */
+    private String parseStandardMobi(RandomAccessFile raf, File file, long fileSize) throws Exception {
+        int numRecords = ((raf.readByte() & 0xFF) << 8) | (raf.readByte() & 0xFF);
+        // 读取记录偏移表
+        long[] recordOffsets = new long[numRecords];
+        long[] recordSizes = new long[numRecords];
+        raf.seek(78);
+        for (int i = 0; i < numRecords; i++) {
+            recordOffsets[i] = raf.readInt() & 0xFFFFFFFFL;
+            recordSizes[i] = 0;
+        }
+        // 计算每个记录的大小
+        for (int i = 0; i < numRecords - 1; i++) {
+            recordSizes[i] = recordOffsets[i + 1] - recordOffsets[i];
+        }
+        recordSizes[numRecords - 1] = fileSize - recordOffsets[numRecords - 1];
 
-        String content = findHtmlContent(buffer, bytesRead);
-        if (!content.trim().isEmpty()) return content;
-        return extractReadableText(buffer, bytesRead);
+        // 跳过 PalmDoc 头部（记录 0 的前 16 字节）
+        // 搜索包含 HTML 内容的记录
+        StringBuilder sb = new StringBuilder(64 * 1024);
+        int textRecordsFound = 0;
+        final int MAX_TEXT_RECORDS = 50; // 最多读取 50 个文本记录
+
+        for (int i = 1; i < numRecords && textRecordsFound < MAX_TEXT_RECORDS; i++) {
+            if (recordSizes[i] <= 0 || recordSizes[i] > 10 * 1024 * 1024) continue; // 跳过空记录和超大记录
+
+            // 只读取记录的前 64KB 来判断是否包含文本
+            long readSize = Math.min(recordSizes[i], 64 * 1024);
+            byte[] recordData = new byte[(int) readSize];
+            raf.seek(recordOffsets[i]);
+            raf.readFully(recordData);
+
+            String recordStr = new String(recordData, StandardCharsets.ISO_8859_1);
+            String lower = recordStr.toLowerCase();
+
+            // 检查是否包含 HTML 标签
+            if (lower.contains("<html") || lower.contains("<body") || lower.contains("<p") || lower.contains("<div")) {
+                String text = stripHtmlTags(recordStr);
+                if (text.trim().length() > 20) {
+                    if (sb.length() > 0) sb.append("\n\n");
+                    sb.append(text);
+                    textRecordsFound++;
+                }
+            } else if (lower.contains("<?xml")) {
+                String text = stripHtmlTags(recordStr);
+                if (text.trim().length() > 20) {
+                    if (sb.length() > 0) sb.append("\n\n");
+                    sb.append(text);
+                    textRecordsFound++;
+                }
+            }
+        }
+
+        if (sb.length() > 0) {
+            return "━━━ MOBI 文本内容（前" + textRecordsFound + "个文本记录）━━━\n\n" + sb.toString();
+        }
+
+        // 如果没找到 HTML 记录，回退到搜索整个文件
+        return searchHtmlInFileStream(raf, fileSize);
     }
 
-    private String findHtmlContent(byte[] data, int length) {
-        String lower = new String(data, 0, length, StandardCharsets.ISO_8859_1).toLowerCase();
-        int bodyStart = lower.indexOf("<html");
-        if (bodyStart < 0) bodyStart = lower.indexOf("<body");
-        if (bodyStart < 0) bodyStart = lower.indexOf("<?xml");
+    private String searchHtmlInFileStream(RandomAccessFile raf, long fileSize) throws Exception {
+        // 流式搜索，使用 64KB 缓冲区，最多搜索 2MB
+        long maxRead = Math.min(fileSize, 2 * 1024 * 1024);
+        byte[] buffer = new byte[64 * 1024];
+        raf.seek(0);
 
-        if (bodyStart >= 0) {
-            String html = new String(data, bodyStart, Math.min(length - bodyStart, 2 * 1024 * 1024), StandardCharsets.ISO_8859_1);
-            return stripHtmlTags(html);
+        StringBuilder chunkBuilder = new StringBuilder();
+        long totalRead = 0;
+        int bytesRead;
+
+        while ((bytesRead = raf.read(buffer)) > 0 && totalRead < maxRead) {
+            totalRead += bytesRead;
+            String chunk = new String(buffer, 0, bytesRead, StandardCharsets.ISO_8859_1);
+            chunkBuilder.append(chunk);
+
+            String lower = chunkBuilder.toString().toLowerCase();
+            int htmlStart = lower.indexOf("<html");
+            if (htmlStart < 0) htmlStart = lower.indexOf("<body");
+            if (htmlStart < 0) htmlStart = lower.indexOf("<?xml");
+
+            if (htmlStart >= 0) {
+                String html = chunkBuilder.substring(htmlStart,
+                        Math.min(chunkBuilder.length(), htmlStart + 100 * 1024));
+                String text = stripHtmlTags(html);
+                if (text.trim().length() > 20) return text;
+            }
+
+            // 保持 chunkBuilder 不超过 256KB
+            if (chunkBuilder.length() > 256 * 1024) {
+                chunkBuilder.delete(0, chunkBuilder.length() / 2);
+            }
         }
-        return "";
+
+        // 没找到 HTML，提取可读文本
+        String remaining = chunkBuilder.toString();
+        String text = extractReadableText(remaining.getBytes(StandardCharsets.ISO_8859_1), remaining.length());
+        return text.trim().isEmpty() ? "" : text;
     }
 
     private String extractReadableText(byte[] data, int length) {
