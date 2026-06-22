@@ -4,9 +4,10 @@ import android.content.Context;
 
 import com.toolbox.alltools.ToolModule;
 import com.toolbox.alltools.ToolModuleRegistry;
-import com.toolbox.alltools.modules.MediaConverterModule;
+import com.toolbox.alltools.modules.AudioConverterModule;
 import com.toolbox.alltools.modules.TextConverterModule;
 import com.toolbox.alltools.modules.TextEditorModule;
+import com.toolbox.alltools.modules.VideoToolsModule;
 import com.toolbox.alltools.modules.WebCrawlerModule;
 
 /**
@@ -37,8 +38,11 @@ public class ModuleConfig {
         // 文本阅读编辑器
         registry.register(new TextEditorModule());
 
-        // 音视频格式转换器
-        registry.register(new MediaConverterModule());
+        // 音频格式转换
+        registry.register(new AudioConverterModule());
+
+        // 视频工具
+        registry.register(new VideoToolsModule());
 
         // 爬虫工具箱
         registry.register(new WebCrawlerModule());

@@ -3,7 +3,8 @@
     <string name="app_name">全能工具站</string>
     <string name="title_text_converter">文本格式转换器</string>
     <string name="title_text_editor">文本阅读编辑器</string>
-    <string name="title_media_converter">音视频格式转换器</string>
+    <string name="title_audio_converter">音频格式转换</string>
+    <string name="title_video_tools">视频工具</string>
     <string name="title_web_crawler">爬虫工具箱</string>
     <string name="btn_convert">转换</string>
     <string name="btn_copy">复制</string>

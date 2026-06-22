@@ -62,19 +62,20 @@
         app:layout_constraintBottom_toTopOf="@+id/btn_convert"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/spinner_convert_type"
-        app:layout_constraintVertical_weight="1" />
+        app:layout_constraintTop_toBottomOf="@+id/spinner_convert_type" />
 
     <!-- 转换按钮 -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_convert"
         android:layout_width="0dp"
         android:layout_height="48dp"
-        android:layout_marginTop="12dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="8dp"
         android:backgroundTint="@color/button_bg"
         android:text="@string/btn_convert"
         android:textColor="@color/button_text"
         app:cornerRadius="8dp"
+        app:layout_constraintBottom_toTopOf="@+id/et_output"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/et_input" />
@@ -84,7 +85,6 @@
         android:id="@+id/et_output"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:layout_marginTop="12dp"
         android:background="@drawable/bg_edittext"
         android:focusable="false"
         android:gravity="top|start"
@@ -97,22 +97,20 @@
         app:layout_constraintBottom_toTopOf="@+id/btn_copy"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/btn_convert"
-        app:layout_constraintVertical_weight="1" />
+        app:layout_constraintTop_toBottomOf="@+id/btn_convert" />
 
     <!-- 复制按钮 -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_copy"
         android:layout_width="0dp"
         android:layout_height="48dp"
-        android:layout_marginTop="12dp"
+        android:layout_marginTop="8dp"
         android:backgroundTint="@color/button_bg"
         android:text="@string/btn_copy"
         android:textColor="@color/button_text"
         app:cornerRadius="8dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/et_output" />
+        app:layout_constraintStart_toStartOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

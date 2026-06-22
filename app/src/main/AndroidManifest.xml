@@ -32,7 +32,11 @@
             android:theme="@style/Theme.ToolBoxApp" />
 
         <activity
-            android:name=".modules.MediaConverterActivity"
+            android:name=".modules.AudioConverterActivity"
+            android:theme="@style/Theme.ToolBoxApp" />
+
+        <activity
+            android:name=".modules.VideoToolsActivity"
             android:theme="@style/Theme.ToolBoxApp" />
 
         <activity
