@@ -1,6 +1,9 @@
 package com.toolbox.alltools.modules;
 
+import android.app.Activity;
 import android.content.Intent;
+import android.media.MediaExtractor;
+import android.media.MediaFormat;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
@@ -54,6 +57,7 @@ public class VideoToolsActivity extends BaseToolActivity {
     private long selectedFileSize;
     private Uri outputFileUri;
     private String outputFilePath = "";
+    private boolean useCustomPath = false;
 
     private final AtomicBoolean isAlive = new AtomicBoolean(true);
     private final AtomicInteger currentProgress = new AtomicInteger(0);
@@ -144,8 +148,9 @@ public class VideoToolsActivity extends BaseToolActivity {
         } else if (requestCode == REQUEST_SAVE_FILE) {
             outputFileUri = data.getData();
             outputFilePath = outputFileUri.toString();
+            useCustomPath = true;
             tvOutputPath.setText(getString(R.string.label_output_path, outputFilePath));
-            Toast.makeText(this, "已选择保存路径", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "已选择自定义保存路径", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -181,22 +186,88 @@ public class VideoToolsActivity extends BaseToolActivity {
             tvFileSize.setText(getString(R.string.label_file_size,
                     formatFileSize(selectedFileSize)));
             tvFileFormat.setText(getString(R.string.label_file_format, extension));
-            tvVideoInfo.setText("分辨率: 待检测 | 时长: 待检测 | 码率: 待检测");
 
-            // 自动建议输出文件名
+            // 检测视频信息
+            detectVideoInfo(uri);
+
+            // 自动建议输出文件名（默认路径 sdcard/ToolBox/VideoTools/）
             String targetFormat = (String) spinnerTargetFormat.getSelectedItem();
             String baseName = displayName;
             if (dotIndex > 0) {
                 baseName = displayName.substring(0, dotIndex);
             }
-            String suggestedName = baseName + "_converted." + targetFormat.toLowerCase();
-            tvOutputPath.setText(getString(R.string.label_output_path, 
-                    "未选择，建议: " + suggestedName));
+            String fileName = baseName + "_converted." + targetFormat.toLowerCase();
+            File moduleDir = AppConfig.getModuleDir(AppConfig.DIR_VIDEO_TOOLS);
+            File outputFile = new File(moduleDir, fileName);
+            int counter = 1;
+            while (outputFile.exists()) {
+                outputFile = new File(moduleDir, baseName + "_converted(" + counter + ")." + targetFormat.toLowerCase());
+                counter++;
+            }
+            outputFilePath = outputFile.getAbsolutePath();
+            useCustomPath = false;
+            tvOutputPath.setText(getString(R.string.label_output_path, outputFilePath));
 
         } catch (Exception e) {
             Toast.makeText(this, "获取文件信息失败: " + e.getMessage(),
                     Toast.LENGTH_SHORT).show();
         }
+    }
+
+    /**
+     * 使用 MediaExtractor 检测视频分辨率、时长、码率
+     */
+    private void detectVideoInfo(Uri uri) {
+        String resolution = "未知";
+        String duration = "未知";
+        String bitrate = "未知";
+
+        try {
+            MediaExtractor extractor = new MediaExtractor();
+            extractor.setDataSource(this, uri, null);
+
+            for (int i = 0; i < extractor.getTrackCount(); i++) {
+                MediaFormat format = extractor.getTrackFormat(i);
+                String mime = format.getString(MediaFormat.KEY_MIME);
+                if (mime != null && mime.startsWith("video/")) {
+                    // 分辨率
+                    if (format.containsKey(MediaFormat.KEY_WIDTH) && format.containsKey(MediaFormat.KEY_HEIGHT)) {
+                        int width = format.getInteger(MediaFormat.KEY_WIDTH);
+                        int height = format.getInteger(MediaFormat.KEY_HEIGHT);
+                        resolution = width + "x" + height;
+                    }
+                    // 时长
+                    if (format.containsKey(MediaFormat.KEY_DURATION)) {
+                        long durUs = format.getLong(MediaFormat.KEY_DURATION);
+                        long durSec = durUs / 1000000;
+                        long minutes = durSec / 60;
+                        long seconds = durSec % 60;
+                        duration = String.format("%d:%02d", minutes, seconds);
+                    }
+                    // 码率
+                    if (format.containsKey(MediaFormat.KEY_BIT_RATE)) {
+                        int bitRate = format.getInteger(MediaFormat.KEY_BIT_RATE);
+                        bitrate = formatBitrate(bitRate);
+                    }
+                    break;
+                }
+            }
+            extractor.release();
+        } catch (Exception e) {
+            android.util.Log.e("VideoTools", "检测视频信息失败: " + e.getMessage());
+        }
+
+        tvVideoInfo.setText("分辨率: " + resolution + " | 时长: " + duration + " | 码率: " + bitrate);
+    }
+
+    private String formatBitrate(int bitRate) {
+        if (bitRate <= 0) return "未知";
+        if (bitRate >= 1000000) {
+            return String.format("%.2f Mbps", bitRate / 1000000.0);
+        } else if (bitRate >= 1000) {
+            return String.format("%.2f Kbps", bitRate / 1000.0);
+        }
+        return bitRate + " bps";
     }
 
     private String formatFileSize(long size) {
@@ -223,36 +294,7 @@ public class VideoToolsActivity extends BaseToolActivity {
         btnConvert.setEnabled(false);
         currentProgress.set(0);
         
-        // 如果没有选择保存路径，使用默认路径
-        if (outputFileUri == null) {
-            createDefaultOutputFile(targetFormat);
-        }
-        
         performConversion(targetFormat);
-    }
-
-    private void createDefaultOutputFile(String targetFormat) {
-        try {
-            String baseName = selectedFileName;
-            int dotIndex = baseName.lastIndexOf('.');
-            if (dotIndex > 0) {
-                baseName = baseName.substring(0, dotIndex);
-            }
-            String fileName = baseName + "_converted." + targetFormat.toLowerCase();
-            
-            // 默认保存到 sdcard/ToolBox/VideoTools/
-            File moduleDir = AppConfig.getModuleDir(AppConfig.DIR_VIDEO_TOOLS);
-            File outputFile = new File(moduleDir, fileName);
-            int counter = 1;
-            while (outputFile.exists()) {
-                outputFile = new File(moduleDir, baseName + "_converted(" + counter + ")." + targetFormat.toLowerCase());
-                counter++;
-            }
-            outputFilePath = outputFile.getAbsolutePath();
-            tvOutputPath.setText(getString(R.string.label_output_path, outputFilePath));
-        } catch (Exception e) {
-            Toast.makeText(this, "创建默认输出路径失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-        }
     }
 
     private void performConversion(final String targetFormat) {
@@ -267,16 +309,31 @@ public class VideoToolsActivity extends BaseToolActivity {
                     throw new Exception("无法打开源文件");
                 }
 
-                // 打开输出流
-                if (outputFileUri != null) {
+                // 确定输出路径
+                File outputFile;
+                if (useCustomPath && outputFileUri != null) {
+                    // 使用自定义路径（通过 ACTION_CREATE_DOCUMENT）
                     outputStream = getContentResolver().openOutputStream(outputFileUri);
+                    outputFilePath = outputFileUri.toString();
                 } else {
-                    File outputFile = new File(outputFilePath);
+                    // 使用默认路径 sdcard/ToolBox/VideoTools/
+                    File moduleDir = AppConfig.getModuleDir(AppConfig.DIR_VIDEO_TOOLS);
+                    String baseName = selectedFileName;
+                    int dotIndex = baseName.lastIndexOf('.');
+                    if (dotIndex > 0) baseName = baseName.substring(0, dotIndex);
+                    String fileName = baseName + "_converted." + targetFormat.toLowerCase();
+                    outputFile = new File(moduleDir, fileName);
+                    int counter = 1;
+                    while (outputFile.exists()) {
+                        outputFile = new File(moduleDir, baseName + "_converted(" + counter + ")." + targetFormat.toLowerCase());
+                        counter++;
+                    }
                     File parentDir = outputFile.getParentFile();
                     if (parentDir != null && !parentDir.exists()) {
                         parentDir.mkdirs();
                     }
                     outputStream = new FileOutputStream(outputFile);
+                    outputFilePath = outputFile.getAbsolutePath();
                 }
                 
                 if (outputStream == null) {
@@ -313,6 +370,7 @@ public class VideoToolsActivity extends BaseToolActivity {
                 }
 
                 outputStream.flush();
+                final String finalPath = outputFilePath;
 
                 runOnUiThread(() -> {
                     if (!isAlive.get()) return;
@@ -321,7 +379,6 @@ public class VideoToolsActivity extends BaseToolActivity {
                     progressBar.setVisibility(View.GONE);
                     tvProgressPercent.setVisibility(View.GONE);
                     btnConvert.setEnabled(true);
-                    String finalPath = outputFileUri != null ? outputFileUri.toString() : outputFilePath;
                     tvOutputPath.setText(getString(R.string.label_output_path, finalPath));
                     Toast.makeText(VideoToolsActivity.this,
                             "视频转换完成，已保存至: " + finalPath,

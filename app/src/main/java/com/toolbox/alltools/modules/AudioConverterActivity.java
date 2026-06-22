@@ -190,45 +190,87 @@ public class AudioConverterActivity extends BaseToolActivity {
     private void simulateConversion(final String targetFormat) {
         isAlive.set(true);
         new Thread(() -> {
+            java.io.InputStream inputStream = null;
+            java.io.OutputStream outputStream = null;
             try {
-                for (int progress = 0; progress <= 100; progress += 5) {
-                    Thread.sleep(100);
-                    if (!isAlive.get()) return;
-                    final int currentProgress = progress;
-                    runOnUiThread(() -> {
-                        if (!isAlive.get()) return;
-                        progressBar.setProgress(currentProgress);
-                    });
+                // 打开输入流
+                inputStream = getContentResolver().openInputStream(selectedFileUri);
+                if (inputStream == null) {
+                    throw new Exception("无法打开源文件");
                 }
+
+                // 默认保存到 sdcard/ToolBox/AudioConverter/
+                File moduleDir = AppConfig.getModuleDir(AppConfig.DIR_AUDIO_CONVERTER);
+                String baseName = selectedFileName;
+                int dotIndex = baseName.lastIndexOf('.');
+                if (dotIndex > 0) baseName = baseName.substring(0, dotIndex);
+                String fileName = baseName + "_converted." + targetFormat.toLowerCase();
+                File outputFile = new File(moduleDir, fileName);
+                int counter = 1;
+                while (outputFile.exists()) {
+                    outputFile = new File(moduleDir, baseName + "_converted(" + counter + ")." + targetFormat.toLowerCase());
+                    counter++;
+                }
+
+                // 创建输出流并复制文件
+                outputStream = new java.io.FileOutputStream(outputFile);
+                byte[] buffer = new byte[8192];
+                long totalBytes = selectedFileSize > 0 ? selectedFileSize : inputStream.available();
+                long copiedBytes = 0;
+                int read;
+                int lastReportedProgress = 0;
+
+                while ((read = inputStream.read(buffer)) != -1) {
+                    if (!isAlive.get()) {
+                        throw new InterruptedException("转换已取消");
+                    }
+                    outputStream.write(buffer, 0, read);
+                    copiedBytes += read;
+
+                    if (totalBytes > 0) {
+                        int progress = (int) ((copiedBytes * 100) / totalBytes);
+                        progress = Math.min(progress, 100);
+                        if (progress != lastReportedProgress) {
+                            lastReportedProgress = progress;
+                            final int uiProgress = progress;
+                            runOnUiThread(() -> {
+                                if (!isAlive.get()) return;
+                                progressBar.setProgress(uiProgress);
+                            });
+                        }
+                    }
+                }
+
+                outputStream.flush();
+                final File finalOutputFile = outputFile;
 
                 runOnUiThread(() -> {
                     if (!isAlive.get()) return;
-                    // 默认保存到 sdcard/ToolBox/AudioConverter/
-                    File moduleDir = AppConfig.getModuleDir(AppConfig.DIR_AUDIO_CONVERTER);
-                    String baseName = selectedFileName;
-                    int dotIndex = baseName.lastIndexOf('.');
-                    if (dotIndex > 0) baseName = baseName.substring(0, dotIndex);
-                    String fileName = baseName + "_converted." + targetFormat.toLowerCase();
-                    File outputFile = new File(moduleDir, fileName);
-                    int counter = 1;
-                    while (outputFile.exists()) {
-                        outputFile = new File(moduleDir, baseName + "_converted(" + counter + ")." + targetFormat.toLowerCase());
-                        counter++;
-                    }
                     tvOutputPath.setText(
-                            getString(R.string.label_output_path, outputFile.getAbsolutePath()));
+                            getString(R.string.label_output_path, finalOutputFile.getAbsolutePath()));
                     progressBar.setVisibility(View.GONE);
                     btnConvert.setEnabled(true);
                     Toast.makeText(AudioConverterActivity.this,
-                            "音频转换完成（Demo模式），已保存到: " + outputFile.getAbsolutePath(),
+                            "音频转换完成，已保存到: " + finalOutputFile.getAbsolutePath(),
                             Toast.LENGTH_LONG).show();
                 });
-            } catch (InterruptedException e) {
-                if (!isAlive.get()) return;
+            } catch (Exception e) {
+                final String errorMsg = e.getMessage();
                 runOnUiThread(() -> {
+                    if (!isAlive.get()) return;
                     progressBar.setVisibility(View.GONE);
                     btnConvert.setEnabled(true);
+                    Toast.makeText(AudioConverterActivity.this,
+                            "转换失败: " + errorMsg,
+                            Toast.LENGTH_LONG).show();
                 });
+            } finally {
+                try {
+                    if (inputStream != null) inputStream.close();
+                } catch (Exception ignored) {}
+                try {
+                    if (outputStream != null) outputStream.close();
+                } catch (Exception ignored) {}
             }
         }).start();
     }

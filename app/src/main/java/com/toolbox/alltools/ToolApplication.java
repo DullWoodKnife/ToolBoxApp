@@ -3,6 +3,7 @@ package com.toolbox.alltools;
 import android.app.Application;
 import android.util.Log;
 
+import com.toolbox.alltools.config.AppConfig;
 import com.toolbox.alltools.config.ModuleConfig;
 
 /**
@@ -43,6 +44,9 @@ public class ToolApplication extends Application {
         // 注册所有工具模块
         ModuleConfig.registerAllModules(this);
 
+        // 确保默认工作目录存在
+        ensureWorkDirsExist();
+
         Log.i(TAG, "ToolApplication 初始化完成");
     }
 
@@ -54,5 +58,22 @@ public class ToolApplication extends Application {
      */
     public static ToolApplication getInstance() {
         return instance;
+    }
+
+    /**
+     * 确保所有默认工作目录存在
+     */
+    private void ensureWorkDirsExist() {
+        try {
+            AppConfig.getWorkDir();
+            AppConfig.getModuleDir(AppConfig.DIR_TEXT_EDITOR);
+            AppConfig.getModuleDir(AppConfig.DIR_TEXT_CONVERTER);
+            AppConfig.getModuleDir(AppConfig.DIR_AUDIO_CONVERTER);
+            AppConfig.getModuleDir(AppConfig.DIR_VIDEO_TOOLS);
+            AppConfig.getModuleDir(AppConfig.DIR_WEB_CRAWLER);
+            Log.i(TAG, "工作目录检查完成");
+        } catch (Exception e) {
+            Log.e(TAG, "创建工作目录失败: " + e.getMessage());
+        }
     }
 }
