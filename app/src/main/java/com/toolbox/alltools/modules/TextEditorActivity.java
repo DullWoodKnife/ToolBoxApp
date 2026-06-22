@@ -133,8 +133,10 @@ public class TextEditorActivity extends BaseToolActivity {
     private String epubBaseDir = "";
     private File epubCacheFile = null; // EPUB 缓存文件，用于 ZipFile 随机访问
 
-    // MOBI 缓存
+    // MOBI/AZW3 缓存和章节
     private File mobiCacheFile = null;
+    private List<MobiChapter> mobiChapters = new ArrayList<>();
+    private int mobiCurrentChapter = 0;
 
     // 大文本分页相关
     private static final int TEXT_LINES_PER_PAGE = 5000; // 每页5000行
@@ -371,8 +373,10 @@ public class TextEditorActivity extends BaseToolActivity {
     private void closeMobiCache() {
         if (mobiCacheFile != null && mobiCacheFile.exists()) {
             mobiCacheFile.delete();
-            mobiCacheFile = null;
         }
+        mobiCacheFile = null;
+        mobiChapters.clear();
+        mobiCurrentChapter = 0;
     }
 
     // ==================== EPUB 导航 ====================
@@ -383,6 +387,19 @@ public class TextEditorActivity extends BaseToolActivity {
         EpubChapter(String title, String entryName) {
             this.title = title;
             this.entryName = entryName;
+        }
+    }
+
+    // ==================== MOBI/AZW3 导航 ====================
+
+    private static class MobiChapter {
+        String title;
+        long offset; // 记录在文件中的偏移量
+        long size;   // 记录大小
+        MobiChapter(String title, long offset, long size) {
+            this.title = title;
+            this.offset = offset;
+            this.size = size;
         }
     }
 
@@ -743,6 +760,15 @@ public class TextEditorActivity extends BaseToolActivity {
                 tvFileInfo.setText(currentFileName + " | TXT | 第 1/" + txtTotalPages + " 页 | 点击跳转");
                 Toast.makeText(TextEditorActivity.this,
                         "文件已打开: " + currentFileName + "（大文件分页模式，点击文件信息栏跳转页面）",
+                        Toast.LENGTH_LONG).show();
+            }
+            // MOBI/AZW3 章节导航
+            else if (!mobiChapters.isEmpty()) {
+                tvFileInfo.setOnClickListener(v -> showMobiNav());
+                tvFileInfo.setClickable(true);
+                tvFileInfo.setText(currentFileName + " | MOBI | 第 1/" + mobiChapters.size() + " 章 | 点击跳转目录");
+                Toast.makeText(TextEditorActivity.this,
+                        "文件已打开: " + currentFileName + "（点击文件信息栏打开目录）",
                         Toast.LENGTH_LONG).show();
             } else {
                 tvFileInfo.setClickable(false);
@@ -1473,30 +1499,34 @@ public class TextEditorActivity extends BaseToolActivity {
         }
     }
 
-    // ==================== AZW3/MOBI 格式（流式读取）====================
+    // ==================== AZW3/MOBI 格式（流式读取+章节导航）====================
 
     /**
-     * 初始化 MOBI/AZW3：流式解析，不复制整个文件到临时文件
+     * 初始化 MOBI/AZW3：解析章节列表，加载第一章
      */
     private String initMobi(Uri uri) {
         closeMobiCache();
+        mobiChapters.clear();
         try {
-            // 尝试直接获取文件路径（避免复制大文件）
+            // 尝试直接获取文件路径
             File directFile = uriToFile(uri);
             if (directFile != null && directFile.exists() && directFile.canRead()) {
-                long fileSize = directFile.length();
-                String text = parseMobiFileStream(directFile, fileSize);
-                if (!text.trim().isEmpty()) {
-                    return text;
-                }
-                return "AZW3/MOBI格式文件已加载。\n\n" +
-                        "该格式为Amazon Kindle专有二进制格式。\n" +
-                        "建议：使用Calibre将AZW3/MOBI转换为EPUB或TXT格式后打开。\n\n" +
-                        "文件大小: " + formatFileSize(fileSize);
+                mobiCacheFile = directFile;
+                return parseMobiWithChapters(directFile);
             }
 
-            // Content URI：只能流式读取，不复制整个文件
-            return parseMobiFromStream(uri);
+            // Content URI：复制到临时文件（MOBI需要随机访问）
+            mobiCacheFile = File.createTempFile("mobi_cache_", ".bin", getCacheDir());
+            try (InputStream is = getContentResolver().openInputStream(uri);
+                 OutputStream os = new FileOutputStream(mobiCacheFile)) {
+                if (is == null) return "无法读取文件";
+                byte[] buffer = new byte[BUFFER_SIZE];
+                int len;
+                while ((len = is.read(buffer)) != -1) {
+                    os.write(buffer, 0, len);
+                }
+            }
+            return parseMobiWithChapters(mobiCacheFile);
         } catch (OutOfMemoryError e) {
             closeMobiCache();
             return "读取AZW3/MOBI失败: 内存不足，文件过大";
@@ -1507,74 +1537,224 @@ public class TextEditorActivity extends BaseToolActivity {
     }
 
     /**
-     * 从 Content URI 流式解析 MOBI（不复制整个文件）
+     * 解析 MOBI 文件，提取章节列表，加载第一章
      */
-    private String parseMobiFromStream(Uri uri) throws Exception {
-        // 只读取前 64KB 判断文件类型
-        byte[] header = new byte[78];
-        int headerRead = 0;
-        try (InputStream is = getContentResolver().openInputStream(uri)) {
-            if (is == null) return "无法读取文件";
-            headerRead = is.read(header);
-        }
-        if (headerRead < 78) {
-            return "AZW3/MOBI格式文件已加载。\n\n文件太小，无法解析。";
-        }
+    private String parseMobiWithChapters(File file) throws Exception {
+        long fileSize = file.length();
+        RandomAccessFile raf = new RandomAccessFile(file, "r");
+        try {
+            // 读取 PalmDB 头部
+            byte[] header = new byte[78];
+            raf.readFully(header);
 
-        String palmType = new String(header, 60, 8, StandardCharsets.ISO_8859_1).trim();
+            String palmType = new String(header, 60, 8, StandardCharsets.ISO_8859_1).trim();
+            int numRecords = ((header[76] & 0xFF) << 8) | (header[77] & 0xFF);
 
-        // 流式搜索 HTML 内容（只读前 2MB）
-        StringBuilder sb = new StringBuilder(64 * 1024);
-        try (InputStream is = getContentResolver().openInputStream(uri)) {
-            if (is == null) return "无法读取文件";
-            byte[] buffer = new byte[64 * 1024]; // 64KB 缓冲区
-            int bytesRead;
-            long totalRead = 0;
-            long maxRead = 2 * 1024 * 1024; // 最多读 2MB
+            // 读取记录偏移表
+            long[] recordOffsets = new long[numRecords];
+            long[] recordSizes = new long[numRecords];
+            raf.seek(78);
+            for (int i = 0; i < numRecords; i++) {
+                recordOffsets[i] = raf.readInt() & 0xFFFFFFFFL;
+                raf.skipBytes(4); // 跳过记录属性
+                recordSizes[i] = 0;
+            }
+            for (int i = 0; i < numRecords - 1; i++) {
+                recordSizes[i] = recordOffsets[i + 1] - recordOffsets[i];
+            }
+            recordSizes[numRecords - 1] = fileSize - recordOffsets[numRecords - 1];
 
-            // 在缓冲区中搜索 HTML 标签
-            StringBuilder chunkBuilder = new StringBuilder();
-            boolean foundHtml = false;
+            // 解析章节列表（将每个文本记录作为章节）
+            int chapterNum = 0;
+            for (int i = 0; i < numRecords; i++) {
+                if (recordSizes[i] <= 0 || recordSizes[i] > 10 * 1024 * 1024) continue;
 
-            while ((bytesRead = is.read(buffer)) > 0 && totalRead < maxRead) {
-                totalRead += bytesRead;
-                String chunk = new String(buffer, 0, bytesRead, StandardCharsets.ISO_8859_1);
-                chunkBuilder.append(chunk);
+                // 读取记录前 4KB 判断内容类型
+                long previewSize = Math.min(recordSizes[i], 4096);
+                byte[] preview = new byte[(int) previewSize];
+                raf.seek(recordOffsets[i]);
+                raf.readFully(preview);
 
-                // 检查是否找到 HTML 内容
-                String lower = chunkBuilder.toString().toLowerCase();
-                int htmlStart = lower.indexOf("<html");
-                if (htmlStart < 0) htmlStart = lower.indexOf("<body");
-                if (htmlStart < 0) htmlStart = lower.indexOf("<?xml");
+                String previewStr = decodeWithFallback(preview, (int) previewSize);
+                String lower = previewStr.toLowerCase();
 
-                if (htmlStart >= 0) {
-                    foundHtml = true;
-                    String html = chunkBuilder.substring(htmlStart,
-                            Math.min(chunkBuilder.length(), htmlStart + 100 * 1024)); // 最多取 100KB 文本
-                    sb.append(stripHtmlTags(html));
-                    break;
-                }
+                // 只保留包含 HTML/文本内容的记录
+                if (lower.contains("<html") || lower.contains("<body") || lower.contains("<p") ||
+                    lower.contains("<div") || lower.contains("<?xml") || lower.contains("<h1") ||
+                    lower.contains("<h2") || lower.contains("<h3")) {
 
-                // 保持 chunkBuilder 不超过 256KB
-                if (chunkBuilder.length() > 256 * 1024) {
-                    chunkBuilder.delete(0, chunkBuilder.length() / 2);
+                    // 提取章节标题
+                    String title = extractMobiChapterTitle(previewStr);
+                    if (title.isEmpty()) {
+                        title = "第 " + (chapterNum + 1) + " 章";
+                    }
+                    mobiChapters.add(new MobiChapter(title, recordOffsets[i], recordSizes[i]));
+                    chapterNum++;
                 }
             }
 
-            if (!foundHtml) {
-                // 没找到 HTML，提取可读文本
-                String remaining = chunkBuilder.toString();
-                sb.append(extractReadableText(remaining.getBytes(StandardCharsets.ISO_8859_1),
-                        remaining.length()));
+            if (mobiChapters.isEmpty()) {
+                // 没找到 HTML 记录，回退到流式搜索
+                return searchHtmlInFileStream(raf, fileSize);
+            }
+
+            // 加载第一章
+            mobiCurrentChapter = 0;
+            String firstText = readMobiChapter(raf, mobiChapters.get(0));
+            return "━━━ " + mobiChapters.get(0).title + " ━━━\n\n" +
+                    (firstText.isEmpty() ? "（本章无文本内容）" : firstText);
+
+        } finally {
+            raf.close();
+        }
+    }
+
+    /**
+     * 异步加载 MOBI 指定章节
+     */
+    private void loadMobiChapterAsync(int chapterIndex) {
+        if (chapterIndex < 0 || chapterIndex >= mobiChapters.size()) return;
+        showProgress("正在读取: " + mobiChapters.get(chapterIndex).title);
+        mobiCurrentChapter = chapterIndex;
+        executorService.execute(() -> {
+            try {
+                if (mobiCacheFile == null || !mobiCacheFile.exists()) {
+                    runOnUiThread(() -> {
+                        hideProgress();
+                        Toast.makeText(this, "MOBI 缓存已失效", Toast.LENGTH_SHORT).show();
+                    });
+                    return;
+                }
+                RandomAccessFile raf = new RandomAccessFile(mobiCacheFile, "r");
+                String text;
+                try {
+                    text = readMobiChapter(raf, mobiChapters.get(chapterIndex));
+                } finally {
+                    raf.close();
+                }
+                final String displayText = "━━━ " + mobiChapters.get(chapterIndex).title + " ━━━\n\n" +
+                        (text.isEmpty() ? "（本章无文本内容）" : text);
+                runOnUiThread(() -> {
+                    etEditor.setText(displayText);
+                    updateStats();
+                    tvFileInfo.setText(currentFileName + " | MOBI | 第 " + (chapterIndex + 1) + "/" +
+                            mobiChapters.size() + " 章 | 点击跳转目录");
+                    tvFileInfo.setOnClickListener(v -> showMobiNav());
+                    hideProgress();
+                });
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    hideProgress();
+                    Toast.makeText(this, "读取章节失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                });
+            }
+        });
+    }
+
+    /**
+     * 读取 MOBI 章节内容（带编码回退）
+     */
+    private String readMobiChapter(RandomAccessFile raf, MobiChapter chapter) throws Exception {
+        long readSize = Math.min(chapter.size, 2 * 1024 * 1024); // 最多读 2MB
+        byte[] data = new byte[(int) readSize];
+        raf.seek(chapter.offset);
+        raf.readFully(data);
+        String text = decodeWithFallback(data, (int) readSize);
+        return stripHtmlTags(text);
+    }
+
+    /**
+     * 尝试 UTF-8 解码，失败时回退到 ISO-8859-1
+     */
+    private String decodeWithFallback(byte[] data, int length) {
+        // 尝试 UTF-8
+        try {
+            String utf8 = new String(data, 0, length, StandardCharsets.UTF_8);
+            // 验证：如果包含替换字符(U+FFFD)，说明不是有效 UTF-8
+            if (utf8.indexOf('\uFFFD') < 0) {
+                return utf8;
+            }
+        } catch (Exception ignored) {}
+
+        // 尝试 GBK（中文常见编码）
+        try {
+            String gbk = new String(data, 0, length, Charset.forName("GBK"));
+            // 简单验证：如果全是乱码字符则放弃
+            int printableCount = 0;
+            for (int i = 0; i < Math.min(gbk.length(), 100); i++) {
+                char c = gbk.charAt(i);
+                if (c >= 0x4E00 && c <= 0x9FFF) printableCount++; // 中文字符
+            }
+            if (printableCount > 5) return gbk;
+        } catch (Exception ignored) {}
+
+        // 回退到 ISO-8859-1
+        return new String(data, 0, length, StandardCharsets.ISO_8859_1);
+    }
+
+    /**
+     * 从 MOBI 记录预览中提取章节标题
+     */
+    private String extractMobiChapterTitle(String preview) {
+        String[] tags = {"h1", "h2", "h3", "title"};
+        for (String tag : tags) {
+            int start = preview.indexOf("<" + tag);
+            if (start >= 0) {
+                int contentStart = preview.indexOf(">", start);
+                if (contentStart >= 0) {
+                    contentStart++;
+                    int end = preview.indexOf("</" + tag, contentStart);
+                    if (end > contentStart) {
+                        String title = stripHtmlTags(preview.substring(contentStart, end)).trim();
+                        if (!title.isEmpty() && title.length() < 100) return title;
+                    }
+                }
             }
         }
+        return "";
+    }
 
-        if (sb.length() == 0) {
-            return "AZW3/MOBI格式文件已加载。\n\n" +
-                    "该格式为Amazon Kindle专有二进制格式。\n" +
-                    "建议：使用Calibre将AZW3/MOBI转换为EPUB或TXT格式后打开。";
+    /**
+     * MOBI 目录导航
+     */
+    private void showMobiNav() {
+        if (mobiChapters.isEmpty()) return;
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("目录导航（共" + mobiChapters.size() + "章，当前第" + (mobiCurrentChapter + 1) + "章）");
+
+        List<String> itemList = new ArrayList<>();
+        if (mobiCurrentChapter > 0) {
+            itemList.add("上一章：" + mobiChapters.get(mobiCurrentChapter - 1).title);
         }
-        return sb.toString();
+        if (mobiCurrentChapter < mobiChapters.size() - 1) {
+            itemList.add("下一章：" + mobiChapters.get(mobiCurrentChapter + 1).title);
+        }
+        itemList.add("──────────");
+        for (int i = 0; i < mobiChapters.size(); i++) {
+            itemList.add((i + 1) + ". " + mobiChapters.get(i).title);
+        }
+
+        final String[] items = itemList.toArray(new String[0]);
+        builder.setItems(items, (dialog, which) -> {
+            String item = items[which];
+            if (item.startsWith("上一章")) {
+                loadMobiChapterAsync(mobiCurrentChapter - 1);
+            } else if (item.startsWith("下一章")) {
+                loadMobiChapterAsync(mobiCurrentChapter + 1);
+            } else if (item.startsWith("────")) {
+                return;
+            } else {
+                int dotIdx = item.indexOf(". ");
+                if (dotIdx > 0) {
+                    try {
+                        int chapterNum = Integer.parseInt(item.substring(0, dotIdx)) - 1;
+                        loadMobiChapterAsync(chapterNum);
+                    } catch (NumberFormatException ignored) {}
+                }
+            }
+        });
+        builder.setNegativeButton("关闭", null);
+        builder.show();
     }
 
     /**
@@ -1588,93 +1768,9 @@ public class TextEditorActivity extends BaseToolActivity {
     }
 
     /**
-     * 流式解析 MOBI 文件，使用 RandomAccessFile 随机访问
+     * 流式搜索 HTML 内容（回退方案）
      */
-    private String parseMobiFileStream(File file, long fileSize) throws Exception {
-        RandomAccessFile raf = new RandomAccessFile(file, "r");
-        try {
-            // 读取 PalmDB 头部
-            byte[] header = new byte[78];
-            raf.readFully(header);
-
-            String palmType = new String(header, 60, 8, StandardCharsets.ISO_8859_1).trim();
-
-            if ("BOOKMOBI".equals(palmType)) {
-                return parseStandardMobi(raf, file, fileSize);
-            } else {
-                // 非标准 MOBI/AZW3，流式搜索 HTML 内容
-                return searchHtmlInFileStream(raf, fileSize);
-            }
-        } finally {
-            raf.close();
-        }
-    }
-
-    /**
-     * 解析标准 MOBI 格式（BOOKMOBI）
-     */
-    private String parseStandardMobi(RandomAccessFile raf, File file, long fileSize) throws Exception {
-        int numRecords = ((raf.readByte() & 0xFF) << 8) | (raf.readByte() & 0xFF);
-        // 读取记录偏移表
-        long[] recordOffsets = new long[numRecords];
-        long[] recordSizes = new long[numRecords];
-        raf.seek(78);
-        for (int i = 0; i < numRecords; i++) {
-            recordOffsets[i] = raf.readInt() & 0xFFFFFFFFL;
-            recordSizes[i] = 0;
-        }
-        // 计算每个记录的大小
-        for (int i = 0; i < numRecords - 1; i++) {
-            recordSizes[i] = recordOffsets[i + 1] - recordOffsets[i];
-        }
-        recordSizes[numRecords - 1] = fileSize - recordOffsets[numRecords - 1];
-
-        // 跳过 PalmDoc 头部（记录 0 的前 16 字节）
-        // 搜索包含 HTML 内容的记录
-        StringBuilder sb = new StringBuilder(64 * 1024);
-        int textRecordsFound = 0;
-        final int MAX_TEXT_RECORDS = 50; // 最多读取 50 个文本记录
-
-        for (int i = 1; i < numRecords && textRecordsFound < MAX_TEXT_RECORDS; i++) {
-            if (recordSizes[i] <= 0 || recordSizes[i] > 10 * 1024 * 1024) continue; // 跳过空记录和超大记录
-
-            // 只读取记录的前 64KB 来判断是否包含文本
-            long readSize = Math.min(recordSizes[i], 64 * 1024);
-            byte[] recordData = new byte[(int) readSize];
-            raf.seek(recordOffsets[i]);
-            raf.readFully(recordData);
-
-            String recordStr = new String(recordData, StandardCharsets.ISO_8859_1);
-            String lower = recordStr.toLowerCase();
-
-            // 检查是否包含 HTML 标签
-            if (lower.contains("<html") || lower.contains("<body") || lower.contains("<p") || lower.contains("<div")) {
-                String text = stripHtmlTags(recordStr);
-                if (text.trim().length() > 20) {
-                    if (sb.length() > 0) sb.append("\n\n");
-                    sb.append(text);
-                    textRecordsFound++;
-                }
-            } else if (lower.contains("<?xml")) {
-                String text = stripHtmlTags(recordStr);
-                if (text.trim().length() > 20) {
-                    if (sb.length() > 0) sb.append("\n\n");
-                    sb.append(text);
-                    textRecordsFound++;
-                }
-            }
-        }
-
-        if (sb.length() > 0) {
-            return "━━━ MOBI 文本内容（前" + textRecordsFound + "个文本记录）━━━\n\n" + sb.toString();
-        }
-
-        // 如果没找到 HTML 记录，回退到搜索整个文件
-        return searchHtmlInFileStream(raf, fileSize);
-    }
-
     private String searchHtmlInFileStream(RandomAccessFile raf, long fileSize) throws Exception {
-        // 流式搜索，使用 64KB 缓冲区，最多搜索 2MB
         long maxRead = Math.min(fileSize, 2 * 1024 * 1024);
         byte[] buffer = new byte[64 * 1024];
         raf.seek(0);
@@ -1685,7 +1781,7 @@ public class TextEditorActivity extends BaseToolActivity {
 
         while ((bytesRead = raf.read(buffer)) > 0 && totalRead < maxRead) {
             totalRead += bytesRead;
-            String chunk = new String(buffer, 0, bytesRead, StandardCharsets.ISO_8859_1);
+            String chunk = decodeWithFallback(buffer, bytesRead);
             chunkBuilder.append(chunk);
 
             String lower = chunkBuilder.toString().toLowerCase();
@@ -1700,13 +1796,11 @@ public class TextEditorActivity extends BaseToolActivity {
                 if (text.trim().length() > 20) return text;
             }
 
-            // 保持 chunkBuilder 不超过 256KB
             if (chunkBuilder.length() > 256 * 1024) {
                 chunkBuilder.delete(0, chunkBuilder.length() / 2);
             }
         }
 
-        // 没找到 HTML，提取可读文本
         String remaining = chunkBuilder.toString();
         String text = extractReadableText(remaining.getBytes(StandardCharsets.ISO_8859_1), remaining.length());
         return text.trim().isEmpty() ? "" : text;
