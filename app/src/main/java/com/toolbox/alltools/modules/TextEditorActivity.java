@@ -1668,28 +1668,53 @@ public class TextEditorActivity extends BaseToolActivity {
      */
     private String decodeWithFallback(byte[] data, int length) {
         // 尝试 UTF-8
+        String utf8 = null;
         try {
-            String utf8 = new String(data, 0, length, StandardCharsets.UTF_8);
-            // 验证：如果包含替换字符(U+FFFD)，说明不是有效 UTF-8
-            if (utf8.indexOf('\uFFFD') < 0) {
+            utf8 = new String(data, 0, length, StandardCharsets.UTF_8);
+            // 验证：不包含替换字符，且中文字符比例合理
+            if (utf8.indexOf('\uFFFD') < 0 && countChineseChars(utf8) >= 3) {
                 return utf8;
             }
         } catch (Exception ignored) {}
 
         // 尝试 GBK（中文常见编码）
+        String gbk = null;
         try {
-            String gbk = new String(data, 0, length, Charset.forName("GBK"));
-            // 简单验证：如果全是乱码字符则放弃
-            int printableCount = 0;
-            for (int i = 0; i < Math.min(gbk.length(), 100); i++) {
-                char c = gbk.charAt(i);
-                if (c >= 0x4E00 && c <= 0x9FFF) printableCount++; // 中文字符
+            gbk = new String(data, 0, length, Charset.forName("GBK"));
+            int gbkChinese = countChineseChars(gbk);
+            if (gbkChinese >= 3) {
+                // GBK 中文字符明显多于 UTF-8，使用 GBK
+                int utf8Chinese = utf8 != null ? countChineseChars(utf8) : 0;
+                if (gbkChinese > utf8Chinese) return gbk;
             }
-            if (printableCount > 5) return gbk;
         } catch (Exception ignored) {}
+
+        // 如果 UTF-8 没有替换字符但中文很少，优先返回 UTF-8（可能是英文内容）
+        if (utf8 != null && utf8.indexOf('\uFFFD') < 0) {
+            return utf8;
+        }
+
+        // 如果 GBK 有中文，返回 GBK
+        if (gbk != null && countChineseChars(gbk) >= 3) {
+            return gbk;
+        }
 
         // 回退到 ISO-8859-1
         return new String(data, 0, length, StandardCharsets.ISO_8859_1);
+    }
+
+    /**
+     * 统计字符串中的中文字符数量（取前200个字符）
+     */
+    private int countChineseChars(String text) {
+        if (text == null) return 0;
+        int count = 0;
+        int checkLen = Math.min(text.length(), 200);
+        for (int i = 0; i < checkLen; i++) {
+            char c = text.charAt(i);
+            if (c >= 0x4E00 && c <= 0x9FFF) count++;
+        }
+        return count;
     }
 
     /**
