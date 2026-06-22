@@ -4,8 +4,7 @@ import android.content.Context;
 import android.content.Intent;
 
 import com.toolbox.alltools.R;
-import com.toolbox.alltools.base.BaseToolActivity;
-import com.toolbox.alltools.base.ToolModule;
+import com.toolbox.alltools.ToolModule;
 
 /**
  * 全能计算器模块
@@ -28,13 +27,7 @@ public class CalculatorModule implements ToolModule {
     }
 
     @Override
-    public Class<? extends BaseToolActivity> getActivityClass() {
+    public Class<?> getModuleActivityClass() {
         return CalculatorActivity.class;
-    }
-
-    @Override
-    public void launch(Context context) {
-        Intent intent = new Intent(context, CalculatorActivity.class);
-        context.startActivity(intent);
     }
 }
