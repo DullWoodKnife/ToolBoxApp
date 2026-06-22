@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <!-- Calculator body -->
+    <path
+        android:fillColor="#2C2C2C"
+        android:strokeColor="#D4A574"
+        android:strokeWidth="1.5"
+        android:pathData="M8,4 L40,4 C42,4 44,6 44,8 L44,40 C44,42 42,44 40,44 L8,44 C6,44 4,42 4,40 L4,8 C4,6 6,4 8,4 Z" />
+    <!-- Display screen -->
+    <path
+        android:fillColor="#1A1A1A"
+        android:strokeColor="#D4A574"
+        android:strokeWidth="1"
+        android:pathData="M10,8 L38,8 L38,16 L10,16 Z" />
+    <!-- Buttons row 1 -->
+    <path
+        android:fillColor="#3C3C3C"
+        android:strokeColor="#D4A574"
+        android:strokeWidth="1"
+        android:pathData="M10,20 L16,20 L16,26 L10,26 Z" />
+    <path
+        android:fillColor="#3C3C3C"
+        android:strokeColor="#D4A574"
+        android:strokeWidth="1"
+        android:pathData="M19,20 L25,20 L25,26 L19,26 Z" />
+    <path
+        android:fillColor="#3C3C3C"
+        android:strokeColor="#D4A574"
+        android:strokeWidth="1"
+        android:pathData="M28,20 L34,20 L34,26 L28,26 Z" />
+    <path
+        android:fillColor="#D4A574"
+        android:strokeColor="#D4A574"
+        android:strokeWidth="1"
+        android:pathData="M37,20 L43,20 L43,26 L37,26 Z" />
+    <!-- Buttons row 2 -->
+    <path
+        android:fillColor="#3C3C3C"
+        android:strokeColor="#D4A574"
+        android:strokeWidth="1"
+        android:pathData="M10,29 L16,29 L16,35 L10,35 Z" />
+    <path
+        android:fillColor="#3C3C3C"
+        android:strokeColor="#D4A574"
+        android:strokeWidth="1"
+        android:pathData="M19,29 L25,29 L25,35 L19,35 Z" />
+    <path
+        android:fillColor="#3C3C3C"
+        android:strokeColor="#D4A574"
+        android:strokeWidth="1"
+        android:pathData="M28,29 L34,29 L34,35 L28,35 Z" />
+    <path
+        android:fillColor="#D4A574"
+        android:strokeColor="#D4A574"
+        android:strokeWidth="1"
+        android:pathData="M37,29 L43,29 L43,35 L37,35 Z" />
+    <!-- Buttons row 3 -->
+    <path
+        android:fillColor="#3C3C3C"
+        android:strokeColor="#D4A574"
+        android:strokeWidth="1"
+        android:pathData="M10,38 L22,38 L22,44 L10,44 Z" />
+    <path
+        android:fillColor="#D4A574"
+        android:strokeColor="#D4A574"
+        android:strokeWidth="1"
+        android:pathData="M25,38 L43,38 L43,44 L25,44 Z" />
+</vector>

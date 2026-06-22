@@ -6,6 +6,7 @@
     <string name="title_audio_converter">音频格式转换</string>
     <string name="title_video_tools">视频工具</string>
     <string name="title_web_crawler">爬虫工具箱</string>
+    <string name="title_calculator">全能计算器</string>
     <string name="btn_convert">转换</string>
     <string name="btn_copy">复制</string>
     <string name="btn_save">保存</string>
