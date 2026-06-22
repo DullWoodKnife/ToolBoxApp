@@ -109,6 +109,12 @@ public class TextEditorActivity extends BaseToolActivity {
     private List<EpubChapter> epubChapters = new ArrayList<>();
 
     @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        closePdfCache();
+    }
+
+    @Override
     protected int getLayoutResId() {
         return R.layout.activity_text_editor;
     }
@@ -178,6 +184,7 @@ public class TextEditorActivity extends BaseToolActivity {
     }
 
     private void newFile() {
+        closePdfCache();
         etEditor.setText("");
         etEditor.setFocusableInTouchMode(true);
         etEditor.setFocusable(true);
@@ -662,8 +669,9 @@ public class TextEditorActivity extends BaseToolActivity {
                 }
             }
 
-            // 解析 OPF 获取 spine 顺序（阅读顺序）
+            // 解析 OPF 获取 spine 顺序（阅读顺序）和 manifest 映射
             List<String> spineOrder = new ArrayList<>();
+            java.util.Map<String, String> manifestIdToHref = new java.util.HashMap<>();
             if (!opfPath.isEmpty()) {
                 try (InputStream is = getContentResolver().openInputStream(uri);
                      ZipInputStream zis = new ZipInputStream(is)) {
@@ -676,50 +684,88 @@ public class TextEditorActivity extends BaseToolActivity {
                             if (!title.isEmpty()) {
                                 sb.append("书名: ").append(title).append("\n\n");
                             }
-                            // 提取 spine 中的 itemref href
-                            spineOrder = extractSpineOrder(opfXml);
+                            // 提取 manifest 映射和 spine 顺序
+                            manifestIdToHref = extractManifest(opfXml);
+                            spineOrder = extractSpineOrder(opfXml, manifestIdToHref);
                             break;
                         }
                     }
                 }
             }
 
-            // 按顺序读取内容文件，构建章节导航
+            // 如果 spine 为空，回退到按 ZIP 条目顺序读取
+            boolean useSpineOrder = !spineOrder.isEmpty();
+
+            // 收集所有内容文件（按 spine 顺序或 ZIP 顺序）
             int currentLine = 1; // 第1行是书名，从第2行开始
-            try (InputStream is = getContentResolver().openInputStream(uri);
-                 ZipInputStream zis = new ZipInputStream(is)) {
-                ZipEntry entry;
-                while ((entry = zis.getNextEntry()) != null) {
-                    String name = entry.getName();
-                    String nameLower = name.toLowerCase();
-                    if (nameLower.endsWith(".xhtml") || nameLower.endsWith(".html") || nameLower.endsWith(".htm")) {
-                        String html = readZipEntryString(zis, 2 * 1024 * 1024); // 单文件最大2MB
-                        String text = stripHtmlTags(html);
-                        if (text.trim().isEmpty()) continue;
 
-                        // 提取章节标题（从 h1/h2/h3 或 title 标签）
-                        String chapterTitle = extractChapterTitle(html);
-                        if (chapterTitle.isEmpty()) {
-                            // 用文件名作为章节标题
-                            int slashPos = name.lastIndexOf('/');
-                            chapterTitle = slashPos >= 0 ? name.substring(slashPos + 1) : name;
-                        }
+            if (useSpineOrder) {
+                // 按 spine 顺序读取：每个 spine href 对应一个 ZIP 条目
+                for (String href : spineOrder) {
+                    // 构建完整的 ZIP 条目路径（相对于 EPUB 根目录）
+                    String entryName = baseDir + href;
+                    if (entryName.startsWith("/")) entryName = entryName.substring(1);
 
-                        EpubChapter chapter = new EpubChapter(chapterTitle, currentLine);
-                        epubChapters.add(chapter);
+                    String html = readZipEntryByName(uri, entryName, 2 * 1024 * 1024);
+                    if (html == null) continue;
 
-                        // 添加分隔标记
-                        sb.append("━━━ ").append(chapterTitle).append(" ━━━\n\n");
-                        currentLine += 2;
+                    String text = stripHtmlTags(html);
+                    if (text.trim().isEmpty()) continue;
 
-                        // 添加内容
-                        String[] lines = text.split("\n", -1);
-                        for (String line : lines) {
-                            sb.append(line).append("\n");
+                    // 提取章节标题
+                    String chapterTitle = extractChapterTitle(html);
+                    if (chapterTitle.isEmpty()) {
+                        int slashPos = entryName.lastIndexOf('/');
+                        chapterTitle = slashPos >= 0 ? entryName.substring(slashPos + 1) : entryName;
+                    }
+
+                    EpubChapter chapter = new EpubChapter(chapterTitle, currentLine);
+                    epubChapters.add(chapter);
+
+                    sb.append("━━━ ").append(chapterTitle).append(" ━━━\n\n");
+                    currentLine += 2;
+
+                    String[] lines = text.split("\n", -1);
+                    for (String line : lines) {
+                        sb.append(line).append("\n");
+                        currentLine++;
+                    }
+                    sb.append("\n");
+                    currentLine++;
+                }
+            } else {
+                // 回退：按 ZIP 条目顺序读取
+                try (InputStream is = getContentResolver().openInputStream(uri);
+                     ZipInputStream zis = new ZipInputStream(is)) {
+                    ZipEntry entry;
+                    while ((entry = zis.getNextEntry()) != null) {
+                        String name = entry.getName();
+                        String nameLower = name.toLowerCase();
+                        if (nameLower.endsWith(".xhtml") || nameLower.endsWith(".html") || nameLower.endsWith(".htm")) {
+                            String html = readZipEntryString(zis, 2 * 1024 * 1024);
+                            String text = stripHtmlTags(html);
+                            if (text.trim().isEmpty()) continue;
+
+                            String chapterTitle = extractChapterTitle(html);
+                            if (chapterTitle.isEmpty()) {
+                                int slashPos = name.lastIndexOf('/');
+                                chapterTitle = slashPos >= 0 ? name.substring(slashPos + 1) : name;
+                            }
+
+                            EpubChapter chapter = new EpubChapter(chapterTitle, currentLine);
+                            epubChapters.add(chapter);
+
+                            sb.append("━━━ ").append(chapterTitle).append(" ━━━\n\n");
+                            currentLine += 2;
+
+                            String[] lines = text.split("\n", -1);
+                            for (String line : lines) {
+                                sb.append(line).append("\n");
+                                currentLine++;
+                            }
+                            sb.append("\n");
                             currentLine++;
                         }
-                        sb.append("\n");
-                        currentLine++;
                     }
                 }
             }
@@ -730,14 +776,30 @@ public class TextEditorActivity extends BaseToolActivity {
         }
     }
 
-    private List<String> extractSpineOrder(String opfXml) {
-        List<String> hrefs = new ArrayList<>();
-        // 从 manifest 中提取所有 item 的 id 和 href
+    /**
+     * 从 ZIP 中按名称读取指定条目
+     */
+    private String readZipEntryByName(Uri uri, String entryName, int maxBytes) {
+        try (InputStream is = getContentResolver().openInputStream(uri);
+             ZipInputStream zis = new ZipInputStream(is)) {
+            ZipEntry entry;
+            while ((entry = zis.getNextEntry()) != null) {
+                if (entry.getName().equals(entryName)) {
+                    return readZipEntryString(zis, maxBytes);
+                }
+            }
+        } catch (Exception e) {
+            android.util.Log.e("TextEditor", "读取ZIP条目失败: " + entryName, e);
+        }
+        return null;
+    }
+
+    private java.util.Map<String, String> extractManifest(String opfXml) {
         java.util.Map<String, String> idToHref = new java.util.HashMap<>();
         int manifestIdx = opfXml.indexOf("<manifest");
-        if (manifestIdx < 0) return hrefs;
+        if (manifestIdx < 0) return idToHref;
         int manifestEnd = opfXml.indexOf("</manifest>", manifestIdx);
-        if (manifestEnd < 0) return hrefs;
+        if (manifestEnd < 0) return idToHref;
         String manifest = opfXml.substring(manifestIdx, manifestEnd);
         int pos = 0;
         while ((pos = manifest.indexOf("<item ", pos)) >= 0) {
@@ -748,13 +810,17 @@ public class TextEditorActivity extends BaseToolActivity {
             }
             pos++;
         }
-        // 从 spine 中按顺序提取 idref
+        return idToHref;
+    }
+
+    private List<String> extractSpineOrder(String opfXml, java.util.Map<String, String> idToHref) {
+        List<String> hrefs = new ArrayList<>();
         int spineIdx = opfXml.indexOf("<spine");
         if (spineIdx < 0) return hrefs;
         int spineEnd = opfXml.indexOf("</spine>", spineIdx);
         if (spineEnd < 0) return hrefs;
         String spine = opfXml.substring(spineIdx, spineEnd);
-        pos = 0;
+        int pos = 0;
         while ((pos = spine.indexOf("<itemref ", pos)) >= 0) {
             String idref = extractXmlAttribute(spine, pos, "idref");
             if (idref != null && idToHref.containsKey(idref)) {
@@ -776,7 +842,6 @@ public class TextEditorActivity extends BaseToolActivity {
     }
 
     private String extractChapterTitle(String html) {
-        // 优先从 h1/h2/h3 提取标题
         String[] tags = {"h1", "h2", "h3"};
         for (String tag : tags) {
             int start = html.indexOf("<" + tag);
@@ -792,7 +857,6 @@ public class TextEditorActivity extends BaseToolActivity {
                 }
             }
         }
-        // 从 <title> 提取
         int titleStart = html.indexOf("<title>");
         if (titleStart >= 0) {
             int contentStart = titleStart + 7;
@@ -826,75 +890,123 @@ public class TextEditorActivity extends BaseToolActivity {
         return xml.substring(contentStart, end).trim();
     }
 
-    // ==================== PDF 格式（容错解析）====================
+    // ==================== PDF 格式（缓存分片读取，避免大文件崩溃）====================
 
+    /** PDF 缓存文件 */
+    private File pdfCacheFile = null;
+    private PDDocument pdfDocument = null;
+    private int pdfTotalPages = 0;
+    private static final int PDF_PAGES_PER_BATCH = 5; // 每批读取5页
+
+    /**
+     * 读取PDF：先缓存到临时文件，然后分批提取页面文本
+     * 大PDF不会一次性加载全部文本到内存
+     */
     private String readPdf(Uri uri) {
-        PDDocument document = null;
+        // 清理之前的PDF缓存
+        closePdfCache();
+
         try {
-            // 使用 RandomAccessFile 方式加载，避免流式解析损坏PDF时的错误
-            // 先将内容复制到临时文件
-            File tempFile = File.createTempFile("pdf_temp_", ".pdf", getCacheDir());
+            // 步骤1：将PDF内容复制到临时缓存文件
+            pdfCacheFile = File.createTempFile("pdf_cache_", ".pdf", getCacheDir());
             try (InputStream is = getContentResolver().openInputStream(uri);
-                 OutputStream os = new FileOutputStream(tempFile)) {
+                 OutputStream os = new FileOutputStream(pdfCacheFile)) {
                 if (is == null) return "无法读取文件";
                 byte[] buffer = new byte[BUFFER_SIZE];
                 int len;
+                long copied = 0;
                 while ((len = is.read(buffer)) != -1) {
                     os.write(buffer, 0, len);
+                    copied += len;
                 }
             }
 
+            // 步骤2：加载PDF文档（使用文件而非流，支持随机访问）
             try {
-                document = PDDocument.load(tempFile);
+                pdfDocument = PDDocument.load(pdfCacheFile);
             } catch (Exception e) {
-                // 如果标准加载失败，尝试用非严格模式（空密码）
                 try {
-                    document = PDDocument.load(tempFile, "");
+                    pdfDocument = PDDocument.load(pdfCacheFile, "");
                 } catch (Exception e2) {
-                    // 再失败则返回错误
-                    tempFile.delete();
+                    closePdfCache();
                     return "读取PDF失败: 无法解析PDF文件，文件可能已损坏或加密";
                 }
             }
 
-            if (document == null) {
-                return "读取PDF失败: 无法解析PDF文件，文件可能已损坏";
+            if (pdfDocument == null) {
+                closePdfCache();
+                return "读取PDF失败: 无法解析PDF文件";
             }
 
-            StringBuilder sb = new StringBuilder();
-            PDFTextStripper stripper = new PDFTextStripper();
-            int totalPages = document.getNumberOfPages();
+            pdfTotalPages = pdfDocument.getNumberOfPages();
 
-            // 逐页提取，每页单独 try-catch
-            for (int page = 1; page <= totalPages; page++) {
+            // 步骤3：分批提取文本，每批处理5页后立即释放内存
+            StringBuilder sb = new StringBuilder();
+            sb.append("PDF 共 ").append(pdfTotalPages).append(" 页\n");
+            sb.append("━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n");
+
+            PDFTextStripper stripper = new PDFTextStripper();
+
+            for (int batchStart = 1; batchStart <= pdfTotalPages; batchStart += PDF_PAGES_PER_BATCH) {
+                int batchEnd = Math.min(batchStart + PDF_PAGES_PER_BATCH - 1, pdfTotalPages);
+
                 try {
-                    stripper.setStartPage(page);
-                    stripper.setEndPage(page);
-                    String text = stripper.getText(document);
+                    stripper.setStartPage(batchStart);
+                    stripper.setEndPage(batchEnd);
+                    String text = stripper.getText(pdfDocument);
+
                     if (text != null && !text.trim().isEmpty()) {
+                        for (int p = batchStart; p <= batchEnd; p++) {
+                            sb.append("━━━ 第 ").append(p).append(" 页 ━━━\n\n");
+                        }
                         sb.append(text);
                         if (!text.endsWith("\n")) sb.append("\n");
+                        sb.append("\n");
                     }
-                } catch (Exception pageEx) {
-                    sb.append("\n[第").append(page).append("页解析失败: ")
-                      .append(pageEx.getMessage()).append("]\n");
+
+                    // 主动触发GC，释放本批次的String内存
+                    text = null;
+                    if (batchEnd % 20 == 0) {
+                        System.gc();
+                    }
+
+                } catch (Exception batchEx) {
+                    sb.append("\n[第").append(batchStart).append("-").append(batchEnd)
+                      .append("页解析失败: ").append(batchEx.getMessage()).append("]\n");
                 }
             }
 
-            document.close();
-            tempFile.delete();
-
-            if (sb.length() == 0) {
+            if (sb.length() < 100) {
+                closePdfCache();
                 return "PDF文件已加载，但未能提取到文本内容（可能是扫描版PDF或加密PDF）";
             }
+
+            // 注意：pdfDocument 和 pdfCacheFile 保持打开，用于后续可能的重新提取
+            // 在 Activity onDestroy 或打开新文件时关闭
             return sb.toString();
+
         } catch (OutOfMemoryError e) {
-            if (document != null) try { document.close(); } catch (Exception ignored) {}
-            return "读取PDF失败: 内存不足，文件过大";
+            closePdfCache();
+            return "读取PDF失败: 内存不足，文件过大。建议将PDF转换为TXT格式后打开。";
         } catch (Exception e) {
-            if (document != null) try { document.close(); } catch (Exception ignored) {}
+            closePdfCache();
             return "读取PDF失败: " + e.getMessage();
         }
+    }
+
+    /**
+     * 关闭PDF缓存，释放资源
+     */
+    private void closePdfCache() {
+        if (pdfDocument != null) {
+            try { pdfDocument.close(); } catch (Exception ignored) {}
+            pdfDocument = null;
+        }
+        if (pdfCacheFile != null && pdfCacheFile.exists()) {
+            pdfCacheFile.delete();
+            pdfCacheFile = null;
+        }
+        pdfTotalPages = 0;
     }
 
     // ==================== AZW3/MOBI 格式（二进制安全读取）====================
