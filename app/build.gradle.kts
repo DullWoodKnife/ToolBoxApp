@@ -54,6 +54,22 @@ android {
     buildFeatures {
         viewBinding = true
     }
+
+    packaging {
+        resources {
+            excludes += setOf(
+                "META-INF/DEPENDENCIES",
+                "META-INF/LICENSE",
+                "META-INF/LICENSE.txt",
+                "META-INF/license.txt",
+                "META-INF/NOTICE",
+                "META-INF/NOTICE.txt",
+                "META-INF/notice.txt",
+                "META-INF/ASL2.0",
+                "META-INF/*.kotlin_module"
+            )
+        }
+    }
 }
 
 dependencies {
@@ -87,8 +103,12 @@ dependencies {
     implementation("org.apache.poi:poi-ooxml:5.2.5")
     implementation("org.apache.poi:poi-scratchpad:5.2.5")
 
-    // EPUB
-    implementation("nl.siegmann.epublib:epublib-core:3.1")
+    // EPUB (exclude conflicting transitive dependencies)
+    implementation("nl.siegmann.epublib:epublib-core:3.1", {
+        exclude(group = "org.slf4j")
+        exclude(group = "xmlpull")
+        exclude(group = "xpp3")
+    })
 
     // PDF
     implementation("com.tom-roush:pdfbox-android:2.0.27.0")
