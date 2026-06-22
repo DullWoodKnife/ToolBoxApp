@@ -4,13 +4,13 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:padding="16dp"
-    android:background="@color/background_dark">
+    android:background="@color/bg_main">
 
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="文件阅读器测试工具"
-        android:textColor="@color/text_primary"
+        android:textColor="@color/text_white"
         android:textSize="20sp"
         android:textStyle="bold"
         android:gravity="center"
@@ -30,7 +30,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="开始测试"
-        android:textColor="@color/white"
+        android:textColor="@color/button_text"
         android:background="@drawable/bg_button" />
 
     <ProgressBar
@@ -66,7 +66,7 @@
             android:id="@+id/tv_log"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="@color/text_primary"
+            android:textColor="@color/text_white"
             android:textSize="12sp"
             android:fontFamily="monospace"
             android:text="" />
