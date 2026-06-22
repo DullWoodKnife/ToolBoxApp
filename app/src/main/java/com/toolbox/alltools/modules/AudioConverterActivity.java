@@ -147,8 +147,8 @@ public class AudioConverterActivity extends BaseToolActivity {
             // 默认保存到 sdcard/ToolBox/AudioConverter/
             File moduleDir = AppConfig.getModuleDir(AppConfig.DIR_AUDIO_CONVERTER);
             String baseName = displayName;
-            int dotIndex = baseName.lastIndexOf('.');
-            if (dotIndex > 0) baseName = baseName.substring(0, dotIndex);
+            int dotIdx = baseName.lastIndexOf('.');
+            if (dotIdx > 0) baseName = baseName.substring(0, dotIdx);
             String fileName = baseName + "_converted." + extension.toLowerCase();
             File outputFile = new File(moduleDir, fileName);
             int counter = 1;
