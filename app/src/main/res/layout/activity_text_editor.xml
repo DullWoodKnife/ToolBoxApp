@@ -143,21 +143,41 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/ll_encoding_bar" />
 
-    <!-- 进度条 -->
-    <ProgressBar
-        android:id="@+id/progress_bar"
-        style="@android:style/Widget.ProgressBar.Horizontal"
+    <!-- 进度区域 -->
+    <LinearLayout
+        android:id="@+id/ll_progress"
         android:layout_width="0dp"
-        android:layout_height="4dp"
+        android:layout_height="wrap_content"
         android:layout_marginStart="12dp"
         android:layout_marginEnd="12dp"
         android:layout_marginTop="4dp"
-        android:indeterminate="true"
-        android:progressDrawable="@drawable/bg_button"
+        android:background="@color/card_dark"
+        android:gravity="center_vertical"
+        android:orientation="vertical"
+        android:padding="8dp"
         android:visibility="gone"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/tv_file_info" />
+        app:layout_constraintTop_toBottomOf="@+id/tv_file_info">
+
+        <ProgressBar
+            android:id="@+id/progress_bar"
+            style="@android:style/Widget.ProgressBar.Horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="6dp"
+            android:max="100"
+            android:progress="0" />
+
+        <TextView
+            android:id="@+id/tv_progress_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:gravity="center"
+            android:text="正在读取..."
+            android:textColor="@color/text_secondary"
+            android:textSize="12sp" />
+    </LinearLayout>
 
     <!-- 文本编辑区域 -->
     <EditText
@@ -177,7 +197,7 @@
         app:layout_constraintBottom_toTopOf="@+id/ll_status_bar"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/progress_bar" />
+        app:layout_constraintTop_toBottomOf="@+id/ll_progress" />
 
     <!-- 底部状态栏 -->
     <LinearLayout

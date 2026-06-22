@@ -102,6 +102,8 @@ public class TextEditorActivity extends BaseToolActivity {
     private ImageButton btnSave;
     private Spinner spinnerEncoding;
     private ProgressBar progressBar;
+    private TextView tvProgressText;
+    private View llProgress;
 
     private Uri currentFileUri;
     private String currentFileName = "";
@@ -117,6 +119,9 @@ public class TextEditorActivity extends BaseToolActivity {
     private PDDocument pdfDocument = null;
     private int pdfTotalPages = 0;
     private int pdfCurrentPage = 1;
+    /** PDF 页面文本缓存（当前页 + 预加载的下一页） */
+    private final String[] pdfPageCache = new String[2]; // [0]=当前页, [1]=预加载页
+    private int pdfPageCacheIndex = -1; // pdfPageCache[0] 对应的页码
 
     // EPUB 章节相关
     private List<EpubChapter> epubChapters = new ArrayList<>();
@@ -157,6 +162,8 @@ public class TextEditorActivity extends BaseToolActivity {
         btnSave = findViewById(R.id.btn_save);
         spinnerEncoding = findViewById(R.id.spinner_encoding);
         progressBar = findViewById(R.id.progress_bar);
+        tvProgressText = findViewById(R.id.tv_progress_text);
+        llProgress = findViewById(R.id.ll_progress);
 
         ArrayAdapter<String> encodingAdapter = new ArrayAdapter<>(this,
                 android.R.layout.simple_spinner_item, SUPPORTED_ENCODINGS);
@@ -304,6 +311,25 @@ public class TextEditorActivity extends BaseToolActivity {
         }
     }
 
+    // ==================== 进度显示 ====================
+
+    private void showProgress(String message) {
+        llProgress.setVisibility(View.VISIBLE);
+        progressBar.setIndeterminate(true);
+        progressBar.setProgress(0);
+        tvProgressText.setText(message);
+    }
+
+    private void updateProgress(int percent, String message) {
+        progressBar.setIndeterminate(false);
+        progressBar.setProgress(percent);
+        tvProgressText.setText(message + " (" + percent + "%)");
+    }
+
+    private void hideProgress() {
+        llProgress.setVisibility(View.GONE);
+    }
+
     // ==================== 资源释放 ====================
 
     private void closeAllCaches() {
@@ -325,6 +351,9 @@ public class TextEditorActivity extends BaseToolActivity {
         }
         pdfTotalPages = 0;
         pdfCurrentPage = 1;
+        pdfPageCache[0] = null;
+        pdfPageCache[1] = null;
+        pdfPageCacheIndex = -1;
     }
 
     private void closeMobiCache() {
@@ -348,14 +377,42 @@ public class TextEditorActivity extends BaseToolActivity {
     private void showEpubNav() {
         if (epubChapters.isEmpty()) return;
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("目录导航（共" + epubChapters.size() + "章）");
-        String[] items = new String[epubChapters.size()];
-        for (int i = 0; i < epubChapters.size(); i++) {
-            items[i] = (i + 1) + ". " + epubChapters.get(i).title;
+        builder.setTitle("目录导航（共" + epubChapters.size() + "章，当前第" + (epubCurrentChapter + 1) + "章）");
+
+        List<String> itemList = new ArrayList<>();
+        if (epubCurrentChapter > 0) {
+            itemList.add("上一章：" + epubChapters.get(epubCurrentChapter - 1).title);
         }
+        if (epubCurrentChapter < epubChapters.size() - 1) {
+            itemList.add("下一章：" + epubChapters.get(epubCurrentChapter + 1).title);
+        }
+        itemList.add("──────────");
+        for (int i = 0; i < epubChapters.size(); i++) {
+            itemList.add((i + 1) + ". " + epubChapters.get(i).title);
+        }
+
+        final String[] items = itemList.toArray(new String[0]);
         builder.setItems(items, (dialog, which) -> {
-            epubCurrentChapter = which;
-            loadEpubChapterAsync(which);
+            String item = items[which];
+            if (item.startsWith("上一章")) {
+                epubCurrentChapter--;
+                loadEpubChapterAsync(epubCurrentChapter);
+            } else if (item.startsWith("下一章")) {
+                epubCurrentChapter++;
+                loadEpubChapterAsync(epubCurrentChapter);
+            } else if (item.startsWith("────")) {
+                return; // 分隔线，忽略
+            } else {
+                // 解析章节编号 "1. xxx" -> 0
+                int dotIdx = item.indexOf(". ");
+                if (dotIdx > 0) {
+                    try {
+                        int chapterNum = Integer.parseInt(item.substring(0, dotIdx)) - 1;
+                        epubCurrentChapter = chapterNum;
+                        loadEpubChapterAsync(chapterNum);
+                    } catch (NumberFormatException ignored) {}
+                }
+            }
         });
         builder.setNegativeButton("关闭", null);
         builder.show();
@@ -371,27 +428,108 @@ public class TextEditorActivity extends BaseToolActivity {
 
     private void showPdfPageNav() {
         if (pdfTotalPages <= 0) return;
-        final String[] items = new String[pdfTotalPages];
-        for (int i = 0; i < pdfTotalPages; i++) {
-            items[i] = "第 " + (i + 1) + " 页";
+
+        // 快捷导航对话框：上一页/下一页/跳转
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("PDF 导航（共" + pdfTotalPages + "页，当前第" + pdfCurrentPage + "页）");
+
+        String[] items;
+        if (pdfCurrentPage > 1 && pdfCurrentPage < pdfTotalPages) {
+            items = new String[]{"上一页（第" + (pdfCurrentPage - 1) + "页）", "下一页（第" + (pdfCurrentPage + 1) + "页）", "跳转到指定页..."};
+        } else if (pdfCurrentPage > 1) {
+            items = new String[]{"上一页（第" + (pdfCurrentPage - 1) + "页）", "跳转到指定页..."};
+        } else if (pdfCurrentPage < pdfTotalPages) {
+            items = new String[]{"下一页（第" + (pdfCurrentPage + 1) + "页）", "跳转到指定页..."};
+        } else {
+            items = new String[]{"跳转到指定页..."};
         }
-        new AlertDialog.Builder(this)
-                .setTitle("PDF 页面导航（共" + pdfTotalPages + "页）")
-                .setItems(items, (dialog, which) -> {
-                    pdfCurrentPage = which + 1;
-                    loadPdfPageAsync(pdfCurrentPage);
-                })
-                .setNegativeButton("关闭", null)
-                .show();
+
+        builder.setItems(items, (dialog, which) -> {
+            String item = items[which];
+            if (item.startsWith("上一页")) {
+                loadPdfPageAsync(pdfCurrentPage - 1);
+            } else if (item.startsWith("下一页")) {
+                loadPdfPageAsync(pdfCurrentPage + 1);
+            } else {
+                showPdfPageJumpDialog();
+            }
+        });
+        builder.setNegativeButton("关闭", null);
+        builder.show();
+    }
+
+    private void showPdfPageJumpDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("跳转到页面（1-" + pdfTotalPages + "）");
+
+        // 分段显示：每10页一组
+        List<String> pageItems = new ArrayList<>();
+        for (int i = 1; i <= pdfTotalPages; i++) {
+            pageItems.add("第 " + i + " 页");
+        }
+
+        // 如果页数太多，分段显示
+        if (pdfTotalPages > 50) {
+            // 显示范围选择
+            String[] ranges = new String[(pdfTotalPages + 49) / 50];
+            for (int i = 0; i < ranges.length; i++) {
+                int start = i * 50 + 1;
+                int end = Math.min((i + 1) * 50, pdfTotalPages);
+                ranges[i] = "第 " + start + "-" + end + " 页";
+            }
+            builder.setItems(ranges, (dialog, which) -> {
+                int startPage = which * 50 + 1;
+                showPdfPageJumpDialog(startPage, Math.min(startPage + 49, pdfTotalPages));
+            });
+        } else {
+            final String[] pageArray = pageItems.toArray(new String[0]);
+            builder.setItems(pageArray, (dialog, which) -> {
+                loadPdfPageAsync(which + 1);
+            });
+        }
+        builder.setNegativeButton("关闭", null);
+        builder.show();
+    }
+
+    private void showPdfPageJumpDialog(int fromPage, int toPage) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("第 " + fromPage + "-" + toPage + " 页");
+        String[] items = new String[toPage - fromPage + 1];
+        for (int i = 0; i < items.length; i++) {
+            items[i] = "第 " + (fromPage + i) + " 页";
+        }
+        builder.setItems(items, (dialog, which) -> {
+            loadPdfPageAsync(fromPage + which);
+        });
+        builder.setNegativeButton("关闭", null);
+        builder.show();
     }
 
     private void loadPdfPageAsync(int page) {
-        progressBar.setVisibility(View.VISIBLE);
+        showProgress("正在读取第 " + page + " 页...");
+        pdfCurrentPage = page;
+
+        // 检查缓存
+        if (pdfPageCacheIndex == page && pdfPageCache[0] != null) {
+            displayPdfPage(page, pdfPageCache[0]);
+            preloadPdfPage(page + 1);
+            return;
+        }
+        if (pdfPageCacheIndex == page - 1 && pdfPageCache[1] != null) {
+            // 下一页已被预加载
+            pdfPageCache[0] = pdfPageCache[1];
+            pdfPageCache[1] = null;
+            pdfPageCacheIndex = page;
+            displayPdfPage(page, pdfPageCache[0]);
+            preloadPdfPage(page + 1);
+            return;
+        }
+
         executorService.execute(() -> {
             try {
                 if (pdfDocument == null || pdfCacheFile == null || !pdfCacheFile.exists()) {
                     runOnUiThread(() -> {
-                        progressBar.setVisibility(View.GONE);
+                        hideProgress();
                         Toast.makeText(this, "PDF 缓存已失效", Toast.LENGTH_SHORT).show();
                     });
                     return;
@@ -404,18 +542,47 @@ public class TextEditorActivity extends BaseToolActivity {
                 final String displayText = (text != null && !text.trim().isEmpty()) ? text :
                         "第 " + page + " 页无文本内容（可能是扫描版或图片页）";
 
+                // 更新缓存
+                pdfPageCache[0] = displayText;
+                pdfPageCache[1] = null;
+                pdfPageCacheIndex = page;
+
                 runOnUiThread(() -> {
-                    etEditor.setText("━━━ 第 " + page + " / " + pdfTotalPages + " 页 ━━━\n\n" + displayText);
-                    updateStats();
-                    tvFileInfo.setText(currentFileName + " | PDF | 第 " + page + "/" + pdfTotalPages + " 页 | 点击跳转");
-                    tvFileInfo.setOnClickListener(v -> showPdfPageNav());
-                    progressBar.setVisibility(View.GONE);
+                    displayPdfPage(page, displayText);
+                    // 预加载下一页
+                    preloadPdfPage(page + 1);
                 });
             } catch (Exception e) {
                 runOnUiThread(() -> {
-                    progressBar.setVisibility(View.GONE);
+                    hideProgress();
                     Toast.makeText(this, "读取第 " + page + " 页失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                 });
+            }
+        });
+    }
+
+    private void displayPdfPage(int page, String text) {
+        etEditor.setText("━━━ 第 " + page + " / " + pdfTotalPages + " 页 ━━━\n\n" + text);
+        updateStats();
+        tvFileInfo.setText(currentFileName + " | PDF | 第 " + page + "/" + pdfTotalPages + " 页 | 点击跳转");
+        tvFileInfo.setOnClickListener(v -> showPdfPageNav());
+        hideProgress();
+    }
+
+    /**
+     * 预加载下一页到缓存
+     */
+    private void preloadPdfPage(int nextPage) {
+        if (nextPage > pdfTotalPages || pdfDocument == null) return;
+        executorService.execute(() -> {
+            try {
+                PDFTextStripper stripper = new PDFTextStripper();
+                stripper.setStartPage(nextPage);
+                stripper.setEndPage(nextPage);
+                String text = stripper.getText(pdfDocument);
+                pdfPageCache[1] = (text != null && !text.trim().isEmpty()) ? text : null;
+            } catch (Exception ignored) {
+                pdfPageCache[1] = null;
             }
         });
     }
@@ -424,14 +591,14 @@ public class TextEditorActivity extends BaseToolActivity {
 
     private void loadEpubChapterAsync(int chapterIndex) {
         if (chapterIndex < 0 || chapterIndex >= epubChapters.size()) return;
-        progressBar.setVisibility(View.VISIBLE);
+        showProgress("正在读取: " + epubChapters.get(chapterIndex).title);
         final EpubChapter chapter = epubChapters.get(chapterIndex);
         executorService.execute(() -> {
             try {
                 String html = readZipEntryByName(currentFileUri, chapter.entryName, 2 * 1024 * 1024);
                 if (html == null) {
                     runOnUiThread(() -> {
-                        progressBar.setVisibility(View.GONE);
+                        hideProgress();
                         Toast.makeText(this, "无法读取章节: " + chapter.title, Toast.LENGTH_SHORT).show();
                     });
                     return;
@@ -446,11 +613,11 @@ public class TextEditorActivity extends BaseToolActivity {
                     tvFileInfo.setText(currentFileName + " | EPUB | 第 " + (chapterIndex + 1) + "/" +
                             epubChapters.size() + " 章 | 点击跳转目录");
                     tvFileInfo.setOnClickListener(v -> showEpubNav());
-                    progressBar.setVisibility(View.GONE);
+                    hideProgress();
                 });
             } catch (Exception e) {
                 runOnUiThread(() -> {
-                    progressBar.setVisibility(View.GONE);
+                    hideProgress();
                     Toast.makeText(this, "读取章节失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                 });
             }
@@ -459,16 +626,23 @@ public class TextEditorActivity extends BaseToolActivity {
 
     // ==================== 后台文件加载 ====================
 
-    private class FileLoadTask extends AsyncTask<Uri, Integer, String> {
+    private class FileLoadTask extends AsyncTask<Uri, String, String> {
         private String displayInfo;
         private boolean readOnly;
         private long fileSize;
 
         @Override
         protected void onPreExecute() {
-            progressBar.setVisibility(View.VISIBLE);
+            showProgress("正在读取 " + currentFileName + "...");
             etEditor.setText("");
             closeAllCaches();
+        }
+
+        @Override
+        protected void onProgressUpdate(String... values) {
+            if (values != null && values.length > 0) {
+                tvProgressText.setText(values[0]);
+            }
         }
 
         @Override
@@ -506,13 +680,14 @@ public class TextEditorActivity extends BaseToolActivity {
 
         @Override
         protected void onPostExecute(String result) {
-            progressBar.setVisibility(View.GONE);
+            hideProgress();
             if (result.startsWith("ERROR:")) {
                 Toast.makeText(TextEditorActivity.this, result.substring(6), Toast.LENGTH_LONG).show();
                 return;
             }
             etEditor.setText(result);
             updateStats();
+            updateEncodingSpinner(detectedEncoding);
             isReadOnlyFormat = readOnly;
             tvFileInfo.setVisibility(View.VISIBLE);
             tvFileInfo.setText(displayInfo + (isReadOnlyFormat ? " | 只读" : " | 可编辑"));
@@ -554,7 +729,6 @@ public class TextEditorActivity extends BaseToolActivity {
         if (fileBytes == null || fileBytes.length == 0) return "";
         detectedEncoding = detectEncoding(fileBytes);
         String content = readWithEncodingStream(uri, detectedEncoding);
-        updateEncodingSpinner(detectedEncoding);
         if (isJson && content != null && !content.trim().isEmpty()) {
             try {
                 Gson gson = new GsonBuilder().setPrettyPrinting().create();

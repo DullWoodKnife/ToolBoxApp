@@ -6,6 +6,7 @@ import com.toolbox.alltools.ToolModule;
 import com.toolbox.alltools.ToolModuleRegistry;
 import com.toolbox.alltools.modules.AudioConverterModule;
 import com.toolbox.alltools.modules.CalculatorModule;
+import com.toolbox.alltools.modules.FileReaderTestModule;
 import com.toolbox.alltools.modules.TextConverterModule;
 import com.toolbox.alltools.modules.TextEditorModule;
 import com.toolbox.alltools.modules.VideoToolsModule;
@@ -50,6 +51,9 @@ public class ModuleConfig {
 
         // 全能计算器
         registry.register(new CalculatorModule());
+
+        // 文件阅读器测试
+        registry.register(new FileReaderTestModule());
 
         // ==================== 新增模块在此处添加 ====================
         // registry.register(new YourNewModule());
