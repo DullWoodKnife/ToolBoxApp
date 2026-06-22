@@ -46,6 +46,11 @@ android {
         jvmTarget = "17"
     }
 
+    // 确保所有源文件使用UTF-8编码编译
+    tasks.withType<JavaCompile> {
+        options.encoding = "UTF-8"
+    }
+
     buildFeatures {
         viewBinding = true
     }

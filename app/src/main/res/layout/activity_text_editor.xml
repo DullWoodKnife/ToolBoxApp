@@ -88,12 +88,47 @@
             app:tint="@color/accent" />
     </LinearLayout>
 
+    <!-- 编码选择栏 -->
+    <LinearLayout
+        android:id="@+id/ll_encoding_bar"
+        android:layout_width="0dp"
+        android:layout_height="40dp"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp"
+        android:layout_marginTop="4dp"
+        android:background="@color/card_dark"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/top_bar">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="编码:"
+            android:textColor="@color/text_secondary"
+            android:textSize="12sp" />
+
+        <Spinner
+            android:id="@+id/spinner_encoding"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:background="@drawable/bg_spinner"
+            android:popupBackground="@color/card_dark" />
+    </LinearLayout>
+
     <!-- 文本编辑区域 -->
     <EditText
         android:id="@+id/et_editor"
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:layout_margin="12dp"
+        android:layout_marginTop="4dp"
         android:background="@drawable/bg_edittext"
         android:gravity="top|start"
         android:hint="在此编辑文本..."
@@ -105,7 +140,7 @@
         app:layout_constraintBottom_toTopOf="@+id/ll_status_bar"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/top_bar" />
+        app:layout_constraintTop_toBottomOf="@+id/ll_encoding_bar" />
 
     <!-- 底部状态栏 -->
     <LinearLayout
