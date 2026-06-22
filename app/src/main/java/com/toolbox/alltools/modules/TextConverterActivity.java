@@ -685,7 +685,8 @@ public class TextConverterActivity extends BaseToolActivity {
             for (int i = 0; i < workbook.getNumberOfSheets(); i++) {
                 XSSFSheet sheet = workbook.getSheetAt(i);
                 sb.append("=== Sheet: ").append(sheet.getSheetName()).append(" ===\n");
-                for (XSSFRow row : sheet) {
+                for (int r = 0; r <= sheet.getLastRowNum(); r++) {
+                    XSSFRow row = sheet.getRow(r);
                     if (row == null) continue;
                     for (int j = 0; j < row.getLastCellNum(); j++) {
                         XSSFCell cell = row.getCell(j);
@@ -758,13 +759,16 @@ public class TextConverterActivity extends BaseToolActivity {
             for (int i = 0; i < pptx.getSlides().size(); i++) {
                 sb.append("=== 幻灯片 ").append(i + 1).append(" ===\n");
                 XSLFSlide slide = pptx.getSlides().get(i);
-                for (XSLFTextShape shape : slide.getShapes()) {
-                    if (shape.getText() != null && !shape.getText().isEmpty()) {
-                        for (XSLFTextParagraph para : shape) {
-                            for (XSLFTextRun run : para) {
-                                sb.append(run.getRawText());
+                for (org.apache.poi.xslf.usermodel.XSLFShape shape : slide.getShapes()) {
+                    if (shape instanceof XSLFTextShape) {
+                        XSLFTextShape textShape = (XSLFTextShape) shape;
+                        if (textShape.getText() != null && !textShape.getText().isEmpty()) {
+                            for (XSLFTextParagraph para : textShape) {
+                                for (XSLFTextRun run : para) {
+                                    sb.append(run.getRawText());
+                                }
+                                sb.append("\n");
                             }
-                            sb.append("\n");
                         }
                     }
                 }
@@ -785,13 +789,16 @@ public class TextConverterActivity extends BaseToolActivity {
             for (int i = 0; i < ppt.getSlides().size(); i++) {
                 sb.append("=== 幻灯片 ").append(i + 1).append(" ===\n");
                 HSLFSlide slide = ppt.getSlides().get(i);
-                for (HSLFTextShape shape : slide.getShapes()) {
-                    if (shape.getText() != null && !shape.getText().isEmpty()) {
-                        for (HSLFTextParagraph para : shape) {
-                            for (HSLFTextRun run : para) {
-                                sb.append(run.getRawText());
+                for (org.apache.poi.hslf.usermodel.HSLFShape shape : slide.getShapes()) {
+                    if (shape instanceof HSLFTextShape) {
+                        HSLFTextShape textShape = (HSLFTextShape) shape;
+                        if (textShape.getText() != null && !textShape.getText().isEmpty()) {
+                            for (HSLFTextParagraph para : textShape) {
+                                for (HSLFTextRun run : para) {
+                                    sb.append(run.getRawText());
+                                }
+                                sb.append("\n");
                             }
-                            sb.append("\n");
                         }
                     }
                 }
