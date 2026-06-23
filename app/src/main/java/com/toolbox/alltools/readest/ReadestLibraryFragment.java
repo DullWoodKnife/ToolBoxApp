@@ -75,7 +75,7 @@ public class ReadestLibraryFragment extends Fragment {
         rvBooks = view.findViewById(R.id.rv_books);
         tvBookCount = view.findViewById(R.id.tv_book_count);
         tvEmptyState = view.findViewById(R.id.tv_empty_state);
-        layoutEmptyState = (LinearLayout) view.findViewById(R.id.tv_empty_state).getParent();
+        layoutEmptyState = view.findViewById(R.id.layout_empty_state);
         ivSortButton = view.findViewById(R.id.btn_sort);
 
         ivSortButton.setOnClickListener(v -> showSortDialog());
