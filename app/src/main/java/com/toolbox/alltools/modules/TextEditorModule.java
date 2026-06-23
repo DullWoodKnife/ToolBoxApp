@@ -10,7 +10,7 @@ public class TextEditorModule implements ToolModule {
 
     @Override
     public String getModuleName() {
-        return "文本阅读编辑器";
+        return "文本编辑器";
     }
 
     @Override

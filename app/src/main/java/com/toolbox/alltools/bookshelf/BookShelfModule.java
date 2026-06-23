@@ -11,7 +11,7 @@ public class BookShelfModule implements ToolModule {
 
     @Override
     public String getModuleName() {
-        return "书架";
+        return "阅读器";
     }
 
     @Override
