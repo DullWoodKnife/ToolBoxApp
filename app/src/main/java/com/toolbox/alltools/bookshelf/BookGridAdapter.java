@@ -13,7 +13,6 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.bumptech.glide.Glide;
 import com.toolbox.alltools.R;
 
 import java.io.File;
@@ -114,11 +113,8 @@ public class BookGridAdapter extends RecyclerView.Adapter<BookGridAdapter.BookVi
             if (coverPath != null && !coverPath.isEmpty() && new File(coverPath).exists()) {
                 ivCover.setVisibility(View.VISIBLE);
                 tvCoverPlaceholder.setVisibility(View.GONE);
-                Glide.with(context)
-                        .load(new File(coverPath))
-                        .placeholder(R.drawable.ic_text_editor)
-                        .error(R.drawable.ic_text_editor)
-                        .into(ivCover);
+                // 无Glide，使用默认图标
+                ivCover.setImageResource(R.drawable.ic_text_editor);
             } else {
                 // 无封面时显示格式占位文字
                 ivCover.setVisibility(View.GONE);

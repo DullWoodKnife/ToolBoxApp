@@ -12,7 +12,6 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.bumptech.glide.Glide;
 import com.toolbox.alltools.R;
 
 import java.io.File;
@@ -35,6 +34,17 @@ public class BookHistoryAdapter extends RecyclerView.Adapter<BookHistoryAdapter.
     public void setBooks(List<Book> books) {
         this.books = books != null ? books : new ArrayList<>();
         notifyDataSetChanged();
+    }
+
+    public List<Book> getBooks() {
+        return books;
+    }
+
+    public void removeItem(int position) {
+        if (position >= 0 && position < books.size()) {
+            books.remove(position);
+            notifyItemRemoved(position);
+        }
     }
 
     @NonNull
@@ -100,16 +110,7 @@ public class BookHistoryAdapter extends RecyclerView.Adapter<BookHistoryAdapter.
             tvLastReadTime.setText(formatRelativeTime(book.getLastReadTime()));
 
             // 封面加载
-            String coverPath = book.getCoverPath();
-            if (coverPath != null && !coverPath.isEmpty() && new File(coverPath).exists()) {
-                Glide.with(context)
-                        .load(new File(coverPath))
-                        .placeholder(R.drawable.ic_text_editor)
-                        .error(R.drawable.ic_text_editor)
-                        .into(ivCover);
-            } else {
-                ivCover.setImageResource(R.drawable.ic_text_editor);
-            }
+            ivCover.setImageResource(R.drawable.ic_text_editor);
         }
 
         private void openBookReader(long bookId) {
