@@ -148,7 +148,7 @@
                     android:layout_width="24dp"
                     android:layout_height="24dp"
                     android:contentDescription="目录"
-                    android:src="@android:drawable/ic_menu_sort_by_size"
+                    android:src="@drawable/ic_catalog"
                     app:tint="#5D4037" />
 
                 <TextView
@@ -177,7 +177,7 @@
                     android:layout_width="24dp"
                     android:layout_height="24dp"
                     android:contentDescription="亮度"
-                    android:src="@android:drawable/ic_menu_day"
+                    android:src="@drawable/ic_brightness"
                     app:tint="#5D4037" />
 
                 <TextView
@@ -206,7 +206,7 @@
                     android:layout_width="24dp"
                     android:layout_height="24dp"
                     android:contentDescription="夜间"
-                    android:src="@android:drawable/ic_menu_close_clear_cancel"
+                    android:src="@drawable/ic_night_mode"
                     app:tint="#5D4037" />
 
                 <TextView
@@ -235,7 +235,7 @@
                     android:layout_width="24dp"
                     android:layout_height="24dp"
                     android:contentDescription="设置"
-                    android:src="@android:drawable/ic_menu_preferences"
+                    android:src="@drawable/ic_reader_settings"
                     app:tint="#5D4037" />
 
                 <TextView

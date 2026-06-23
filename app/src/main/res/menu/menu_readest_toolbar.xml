@@ -3,23 +3,23 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <item
         android:id="@+id/action_search"
-        android:icon="@android:drawable/ic_menu_search"
+        android:icon="@drawable/ic_search"
         android:title="搜索"
         app:actionViewClass="androidx.appcompat.widget.SearchView"
         app:showAsAction="always" />
     <item
         android:id="@+id/action_import"
-        android:icon="@android:drawable/ic_input_add"
+        android:icon="@drawable/ic_add"
         android:title="导入"
         app:showAsAction="always" />
     <item
         android:id="@+id/action_toggle_view"
-        android:icon="@android:drawable/ic_menu_gallery"
+        android:icon="@drawable/ic_view_grid"
         android:title="切换视图"
         app:showAsAction="always" />
     <item
         android:id="@+id/action_settings"
-        android:icon="@android:drawable/ic_menu_preferences"
+        android:icon="@drawable/ic_settings"
         android:title="设置"
         app:showAsAction="always" />
 </menu>

@@ -14,16 +14,13 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.toolbox.alltools.R;
 
-import java.util.ArrayList;
-import java.util.List;
-
 /**
  * 笔记Fragment：展示阅读笔记列表
+ * Koodo Reader 浅色主题风格
  */
 public class BookNotesFragment extends Fragment {
 
     private RecyclerView rvNotes;
-    private TextView tvEmptyNotes;
 
     @Nullable
     @Override
@@ -36,18 +33,14 @@ public class BookNotesFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         rvNotes = view.findViewById(R.id.rv_book_history);
+
+        // 空状态显示
         View emptyView = view.findViewById(R.id.ll_empty_state);
-        if (emptyView instanceof TextView) {
-            tvEmptyNotes = (TextView) emptyView;
-        } else {
-            tvEmptyNotes = view.findViewById(R.id.tv_empty_state);
+        if (emptyView != null) {
+            emptyView.setVisibility(View.VISIBLE);
         }
-
-        tvEmptyNotes.setText("暂无笔记\n\n阅读时选中文字即可添加笔记");
-        rvNotes.setLayoutManager(new LinearLayoutManager(requireContext()));
-
-        // 笔记功能后续实现
-        tvEmptyNotes.setVisibility(View.VISIBLE);
         rvNotes.setVisibility(View.GONE);
+
+        rvNotes.setLayoutManager(new LinearLayoutManager(requireContext()));
     }
 }

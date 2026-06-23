@@ -21,6 +21,7 @@ import java.io.File;
 
 /**
  * 设置Fragment
+ * Koodo Reader 浅色主题风格
  * 参考Koodo Reader设置页面，去除三方服务/发送邮件/联系我们/关于我们
  */
 public class BookSettingsFragment extends Fragment {

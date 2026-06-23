@@ -81,7 +81,7 @@
                 android:layout_marginTop="10dp"
                 android:max="100"
                 android:progress="35"
-                android:progressDrawable="@android:drawable/progress_horizontal" />
+                android:progressDrawable="@drawable/progress_horizontal_custom" />
 
             <!-- 进度百分比和最后阅读时间 -->
             <LinearLayout

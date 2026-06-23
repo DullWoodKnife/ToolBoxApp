@@ -4,13 +4,13 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F5F5F5"
-    android:padding="16dp">
+    android:background="@color/koodo_bg">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:padding="16dp">
 
         <!-- 设置标题 -->
         <TextView
@@ -19,48 +19,65 @@
             android:text="设置"
             android:textSize="24sp"
             android:textStyle="bold"
-            android:textColor="@color/text_white"
+            android:textColor="#4B4B4B"
             android:layout_marginBottom="16dp" />
 
-        <!-- 阅读选项 -->
+        <!-- 阅读选项卡片 -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             app:cardCornerRadius="12dp"
-            app:cardElevation="2dp"
+            app:cardElevation="1dp"
             android:layout_marginBottom="12dp"
-            app:cardBackgroundColor="@color/card_dark">
+            app:cardBackgroundColor="#FFFFFF"
+            app:strokeColor="#E8E8E8"
+            app:strokeWidth="1dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="12dp">
+                android:padding="16dp">
 
-                <TextView
-                    android:layout_width="wrap_content"
+                <!-- 阅读选项标题行 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="阅读选项"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/accent"
-                    android:layout_marginBottom="8dp" />
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="12dp">
+
+                    <ImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@drawable/ic_bookmark"
+                        app:tint="#50C878" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="10dp"
+                        android:text="阅读选项"
+                        android:textColor="#4B4B4B"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
 
                 <!-- 字体大小 -->
                 <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
+                    android:layout_height="48dp"
                     android:gravity="center_vertical"
-                    android:paddingVertical="8dp">
+                    android:orientation="horizontal">
 
                     <TextView
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="字体大小"
-                        android:textColor="@color/text_white"
-                        android:textSize="14sp" />
+                        android:textColor="#4B4B4B"
+                        android:textSize="15sp" />
 
                     <SeekBar
                         android:id="@+id/seek_font_size"
@@ -71,21 +88,25 @@
                         android:progress="16" />
                 </LinearLayout>
 
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="#F0F0F0" />
+
                 <!-- 行间距 -->
                 <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
+                    android:layout_height="48dp"
                     android:gravity="center_vertical"
-                    android:paddingVertical="8dp">
+                    android:orientation="horizontal">
 
                     <TextView
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="行间距"
-                        android:textColor="@color/text_white"
-                        android:textSize="14sp" />
+                        android:textColor="#4B4B4B"
+                        android:textSize="15sp" />
 
                     <SeekBar
                         android:id="@+id/seek_line_spacing"
@@ -96,21 +117,25 @@
                         android:progress="10" />
                 </LinearLayout>
 
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="#F0F0F0" />
+
                 <!-- 翻页动画 -->
                 <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
+                    android:layout_height="48dp"
                     android:gravity="center_vertical"
-                    android:paddingVertical="8dp">
+                    android:orientation="horizontal">
 
                     <TextView
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="翻页动画"
-                        android:textColor="@color/text_white"
-                        android:textSize="14sp" />
+                        android:textColor="#4B4B4B"
+                        android:textSize="15sp" />
 
                     <Switch
                         android:id="@+id/switch_page_animation"
@@ -121,45 +146,61 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- 外观选项 -->
+        <!-- 外观选项卡片 -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             app:cardCornerRadius="12dp"
-            app:cardElevation="2dp"
+            app:cardElevation="1dp"
             android:layout_marginBottom="12dp"
-            app:cardBackgroundColor="@color/card_dark">
+            app:cardBackgroundColor="#FFFFFF"
+            app:strokeColor="#E8E8E8"
+            app:strokeWidth="1dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="12dp">
+                android:padding="16dp">
 
-                <TextView
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="外观选项"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/accent"
-                    android:layout_marginBottom="8dp" />
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="12dp">
+
+                    <ImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@drawable/ic_palette"
+                        app:tint="#50C878" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="10dp"
+                        android:text="外观选项"
+                        android:textColor="#4B4B4B"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
 
                 <!-- 夜间模式 -->
                 <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
+                    android:layout_height="48dp"
                     android:gravity="center_vertical"
-                    android:paddingVertical="8dp">
+                    android:orientation="horizontal">
 
                     <TextView
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="夜间模式"
-                        android:textColor="@color/text_white"
-                        android:textSize="14sp" />
+                        android:textColor="#4B4B4B"
+                        android:textSize="15sp" />
 
                     <Switch
                         android:id="@+id/switch_night_mode"
@@ -168,21 +209,25 @@
                         android:checked="false" />
                 </LinearLayout>
 
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="#F0F0F0" />
+
                 <!-- 阅读背景 -->
                 <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
+                    android:layout_height="48dp"
                     android:gravity="center_vertical"
-                    android:paddingVertical="8dp">
+                    android:orientation="horizontal">
 
                     <TextView
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="阅读背景"
-                        android:textColor="@color/text_white"
-                        android:textSize="14sp" />
+                        android:textColor="#4B4B4B"
+                        android:textSize="15sp" />
 
                     <LinearLayout
                         android:id="@+id/bg_color_selector"
@@ -191,21 +236,31 @@
                         android:orientation="horizontal">
 
                         <View
-                            android:layout_width="32dp"
-                            android:layout_height="32dp"
+                            android:layout_width="28dp"
+                            android:layout_height="28dp"
+                            android:background="#FFFFFF"
+                            android:layout_marginEnd="8dp"
+                            android:clickable="true" />
+
+                        <View
+                            android:layout_width="28dp"
+                            android:layout_height="28dp"
                             android:background="#F5E6C8"
-                            android:layout_marginEnd="8dp" />
+                            android:layout_marginEnd="8dp"
+                            android:clickable="true" />
 
                         <View
-                            android:layout_width="32dp"
-                            android:layout_height="32dp"
+                            android:layout_width="28dp"
+                            android:layout_height="28dp"
                             android:background="#E8F5E9"
-                            android:layout_marginEnd="8dp" />
+                            android:layout_marginEnd="8dp"
+                            android:clickable="true" />
 
                         <View
-                            android:layout_width="32dp"
-                            android:layout_height="32dp"
-                            android:background="#1A1A2E" />
+                            android:layout_width="28dp"
+                            android:layout_height="28dp"
+                            android:background="#2C2F31"
+                            android:clickable="true" />
                     </LinearLayout>
                 </LinearLayout>
             </LinearLayout>
@@ -217,32 +272,42 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             app:cardCornerRadius="12dp"
-            app:cardElevation="2dp"
+            app:cardElevation="1dp"
             android:layout_marginBottom="12dp"
-            app:cardBackgroundColor="@color/card_dark"
+            app:cardBackgroundColor="#FFFFFF"
+            app:strokeColor="#E8E8E8"
+            app:strokeWidth="1dp"
             android:clickable="true"
             android:focusable="true">
 
             <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
+                android:layout_height="48dp"
                 android:gravity="center_vertical"
-                android:padding="16dp">
+                android:orientation="horizontal"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_chart"
+                    app:tint="#50C878" />
 
                 <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
+                    android:layout_marginStart="10dp"
                     android:text="阅读统计"
-                    android:textColor="@color/text_white"
-                    android:textSize="16sp" />
+                    android:textColor="#4B4B4B"
+                    android:textSize="15sp" />
 
                 <ImageView
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:src="@android:drawable/ic_menu_more"
-                    app:tint="@color/text_secondary" />
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_arrow_right"
+                    app:tint="#BDBDBD" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
@@ -251,33 +316,48 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             app:cardCornerRadius="12dp"
-            app:cardElevation="2dp"
+            app:cardElevation="1dp"
             android:layout_marginBottom="12dp"
-            app:cardBackgroundColor="@color/card_dark">
+            app:cardBackgroundColor="#FFFFFF"
+            app:strokeColor="#E8E8E8"
+            app:strokeWidth="1dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="12dp">
+                android:padding="16dp">
 
-                <TextView
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="数据管理"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/accent"
-                    android:layout_marginBottom="8dp" />
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="12dp">
 
-                <!-- 备份与恢复 -->
+                    <ImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@drawable/ic_database"
+                        app:tint="#50C878" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="10dp"
+                        android:text="数据管理"
+                        android:textColor="#4B4B4B"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
                 <LinearLayout
                     android:id="@+id/btn_backup_restore"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
+                    android:layout_height="48dp"
                     android:gravity="center_vertical"
-                    android:paddingVertical="12dp"
+                    android:orientation="horizontal"
                     android:clickable="true"
                     android:focusable="true"
                     android:background="?attr/selectableItemBackground">
@@ -287,29 +367,27 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="备份与恢复"
-                        android:textColor="@color/text_white"
-                        android:textSize="14sp" />
+                        android:textColor="#4B4B4B"
+                        android:textSize="15sp" />
 
                     <ImageView
                         android:layout_width="20dp"
                         android:layout_height="20dp"
-                        android:src="@android:drawable/ic_menu_more"
-                        app:tint="@color/text_secondary" />
+                        android:src="@drawable/ic_arrow_right"
+                        app:tint="#BDBDBD" />
                 </LinearLayout>
 
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
-                    android:background="#33FFFFFF" />
+                    android:background="#F0F0F0" />
 
-                <!-- 清理临时缓存 -->
                 <LinearLayout
                     android:id="@+id/btn_clear_cache"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
+                    android:layout_height="48dp"
                     android:gravity="center_vertical"
-                    android:paddingVertical="12dp"
+                    android:orientation="horizontal"
                     android:clickable="true"
                     android:focusable="true"
                     android:background="?attr/selectableItemBackground">
@@ -319,29 +397,27 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="清理临时缓存"
-                        android:textColor="@color/text_white"
-                        android:textSize="14sp" />
+                        android:textColor="#4B4B4B"
+                        android:textSize="15sp" />
 
                     <ImageView
                         android:layout_width="20dp"
                         android:layout_height="20dp"
-                        android:src="@android:drawable/ic_menu_more"
-                        app:tint="@color/text_secondary" />
+                        android:src="@drawable/ic_arrow_right"
+                        app:tint="#BDBDBD" />
                 </LinearLayout>
 
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
-                    android:background="#33FFFFFF" />
+                    android:background="#F0F0F0" />
 
-                <!-- 清除所有数据 -->
                 <LinearLayout
                     android:id="@+id/btn_clear_all_data"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
+                    android:layout_height="48dp"
                     android:gravity="center_vertical"
-                    android:paddingVertical="12dp"
+                    android:orientation="horizontal"
                     android:clickable="true"
                     android:focusable="true"
                     android:background="?attr/selectableItemBackground">
@@ -351,14 +427,14 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="清除所有数据"
-                        android:textColor="#FF6B6B"
-                        android:textSize="14sp" />
+                        android:textColor="#E74545"
+                        android:textSize="15sp" />
 
                     <ImageView
                         android:layout_width="20dp"
                         android:layout_height="20dp"
-                        android:src="@android:drawable/ic_menu_more"
-                        app:tint="@color/text_secondary" />
+                        android:src="@drawable/ic_arrow_right"
+                        app:tint="#BDBDBD" />
                 </LinearLayout>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>

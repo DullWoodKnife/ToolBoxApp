@@ -11,8 +11,8 @@ android {
         applicationId = "com.toolbox.alltools"
         minSdk = 26
         targetSdk = 34
-        versionCode = 4
-        versionName = "1.0.2"
+        versionCode = 5
+        versionName = "1.0.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -88,6 +88,9 @@ dependencies {
 
     // RecyclerView
     implementation("androidx.recyclerview:recyclerview:1.3.2")
+
+    // ViewPager2
+    implementation("androidx.viewpager2:viewpager2:1.0.0")
 
     // Network
     implementation("com.squareup.okhttp3:okhttp:4.12.0")

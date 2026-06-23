@@ -1,32 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
-<com.google.android.material.card.MaterialCardView
+<FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
-    android:id="@+id/card_book"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_margin="6dp"
-    android:clickable="true"
-    android:focusable="true"
-    android:foreground="?attr/selectableItemBackground"
-    app:cardBackgroundColor="@color/card_dark"
-    app:cardCornerRadius="12dp"
-    app:cardElevation="4dp"
-    app:cardPreventCornerOverlap="true">
+    android:layout_margin="6dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="8dp">
+        android:orientation="vertical">
 
-        <!-- 书籍封面占位 -->
+        <!-- 封面区域 -->
         <FrameLayout
+            android:id="@+id/fl_cover"
             android:layout_width="match_parent"
-            android:layout_height="120dp"
-            android:background="@color/card_light"
-            android:radius="8dp">
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:background="@color/koodo_card_bg">
 
             <ImageView
                 android:id="@+id/iv_book_cover"
@@ -34,62 +25,96 @@
                 android:layout_height="match_parent"
                 android:contentDescription="书籍封面"
                 android:scaleType="centerCrop"
+                android:visibility="gone"
                 tools:src="@android:drawable/ic_menu_book" />
 
-            <!-- 格式标签 -->
-            <TextView
-                android:id="@+id/tv_format_badge"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="top|end"
+            <!-- 空封面：格式色块 -->
+            <LinearLayout
+                android:id="@+id/ll_empty_cover"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:gravity="center_horizontal"
+                android:background="#F5F5F5">
+
+                <!-- 格式banner -->
+                <TextView
+                    android:id="@+id/tv_cover_banner"
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="2"
+                    android:gravity="bottom|center_horizontal"
+                    android:paddingBottom="4dp"
+                    android:text="PDF"
+                    android:textColor="#FFFFFF"
+                    android:textSize="15sp"
+                    android:textStyle="500" />
+
+                <!-- 标题区域 -->
+                <TextView
+                    android:id="@+id/tv_cover_title"
+                    android:layout_width="90%"
+                    android:layout_height="0dp"
+                    android:layout_weight="3"
+                    android:gravity="center"
+                    android:ellipsize="end"
+                    android:maxLines="3"
+                    android:paddingTop="4dp"
+                    android:textColor="#4B4B4B"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:lineSpacingExtra="2dp" />
+
+                <!-- footer -->
+                <TextView
+                    android:id="@+id/tv_cover_footer"
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:text="Koodo Reader"
+                    android:textColor="#BDBDBD"
+                    android:textSize="10sp" />
+            </LinearLayout>
+
+            <!-- 收藏图标 -->
+            <ImageView
+                android:id="@+id/iv_favorite"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_gravity="bottom|end"
                 android:layout_margin="4dp"
-                android:background="@color/accent"
-                android:paddingStart="6dp"
-                android:paddingEnd="6dp"
-                android:paddingTop="2dp"
-                android:paddingBottom="2dp"
-                android:text="MOBI"
-                android:textColor="@color/button_text"
-                android:textSize="10sp"
-                android:textStyle="bold" />
-
-            <!-- 封面占位文字 -->
-            <TextView
-                android:id="@+id/tv_cover_placeholder"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:text="-MOBI-"
-                android:textColor="@color/text_secondary"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                android:visibility="gone" />
-
+                android:contentDescription="收藏"
+                android:src="@drawable/ic_heart"
+                android:visibility="gone"
+                tools:visibility="visible" />
         </FrameLayout>
 
-        <!-- 书籍标题 -->
+        <!-- 书名 -->
         <TextView
             android:id="@+id/tv_book_title"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_width="80%"
+            android:layout_height="31dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="6dp"
             android:ellipsize="end"
-            android:maxLines="1"
-            android:textColor="@color/text_white"
-            android:textSize="13sp"
-            android:textStyle="bold"
+            android:gravity="center"
+            android:maxLines="2"
+            android:textColor="#4B4B4B"
+            android:textSize="12sp"
+            android:lineSpacingExtra="2dp"
             tools:text="书籍标题" />
 
-        <!-- 阅读状态 -->
+        <!-- 阅读进度 -->
         <TextView
             android:id="@+id/tv_read_status"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:textColor="@color/accent"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="2dp"
+            android:textColor="#999999"
             android:textSize="11sp"
-            tools:text="已读35%" />
+            tools:text="New" />
 
     </LinearLayout>
-
-</com.google.android.material.card.MaterialCardView>
+</FrameLayout>

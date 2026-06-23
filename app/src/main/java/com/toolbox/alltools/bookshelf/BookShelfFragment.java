@@ -25,7 +25,8 @@ import java.util.List;
 
 /**
  * 书架Fragment
- * 使用RecyclerView + GridLayoutManager(3列)展示书籍
+ * Koodo Reader 浅色主题风格
+ * 使用RecyclerView + GridLayoutManager(2列)展示书籍
  * 支持分类筛选、长按菜单、搜索结果显示
  */
 public class BookShelfFragment extends Fragment {
@@ -90,7 +91,7 @@ public class BookShelfFragment extends Fragment {
 
     private void setupRecyclerView() {
         bookAdapter = new BookGridAdapter(requireContext());
-        rvBookShelf.setLayoutManager(new GridLayoutManager(requireContext(), 3));
+        rvBookShelf.setLayoutManager(new GridLayoutManager(requireContext(), 2));
         rvBookShelf.setAdapter(bookAdapter);
 
         bookAdapter.setOnBookActionListener(new BookGridAdapter.OnBookActionListener() {
@@ -117,7 +118,8 @@ public class BookShelfFragment extends Fragment {
                 "application/pdf",
                 "application/epub+zip",
                 "application/x-mobipocket-ebook",
-                "application/vnd.amazon.ebook"
+                "application/vnd.amazon.ebook",
+                "text/plain"
         };
         intent.putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes);
         startActivityForResult(intent, REQUEST_PICK_FILE);
@@ -139,7 +141,7 @@ public class BookShelfFragment extends Fragment {
         String extension = getFileExtension(fileName);
 
         java.util.Set<String> supported = new java.util.HashSet<>(
-                java.util.Arrays.asList("pdf", "epub", "mobi", "azw3"));
+                java.util.Arrays.asList("pdf", "epub", "mobi", "azw3", "txt"));
         if (!supported.contains(extension.toLowerCase())) {
             Toast.makeText(requireContext(), "不支持的文件格式: " + extension, Toast.LENGTH_SHORT).show();
             return;

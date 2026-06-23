@@ -37,7 +37,7 @@
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="排序"
             android:padding="6dp"
-            android:src="@android:drawable/ic_menu_sort_by_size"
+            android:src="@drawable/ic_sort"
             app:tint="@color/text_secondary" />
 
     </LinearLayout>
@@ -76,7 +76,7 @@
         android:layout_marginEnd="16dp"
         android:layout_marginBottom="16dp"
         android:contentDescription="导入书籍"
-        android:src="@android:drawable/ic_input_add"
+        android:src="@drawable/ic_add"
         app:backgroundTint="@color/accent"
         app:tint="@color/button_text"
         app:elevation="6dp"

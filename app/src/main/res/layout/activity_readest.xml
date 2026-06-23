@@ -41,7 +41,7 @@
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="搜索"
                     android:padding="8dp"
-                    android:src="@android:drawable/ic_menu_search"
+                    android:src="@drawable/ic_search"
                     app:tint="@color/text_white" />
 
                 <!-- 导入 -->
@@ -52,7 +52,7 @@
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="导入"
                     android:padding="8dp"
-                    android:src="@android:drawable/ic_input_add"
+                    android:src="@drawable/ic_add"
                     app:tint="@color/text_white" />
 
                 <!-- 视图切换 (grid/list) -->
@@ -63,7 +63,7 @@
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="切换视图"
                     android:padding="8dp"
-                    android:src="@android:drawable/ic_menu_gallery"
+                    android:src="@drawable/ic_view_grid"
                     app:tint="@color/text_white" />
 
                 <!-- 设置 -->
@@ -74,7 +74,7 @@
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="设置"
                     android:padding="8dp"
-                    android:src="@android:drawable/ic_menu_preferences"
+                    android:src="@drawable/ic_settings"
                     app:tint="@color/text_white" />
 
             </LinearLayout>

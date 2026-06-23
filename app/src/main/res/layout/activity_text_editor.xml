@@ -28,7 +28,7 @@
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="返回"
             android:padding="8dp"
-            android:src="@android:drawable/ic_menu_revert"
+            android:src="@drawable/ic_undo"
             app:tint="@color/text_white" />
 
         <!-- 标题 -->
@@ -51,7 +51,7 @@
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="打开文件"
             android:padding="8dp"
-            android:src="@android:drawable/ic_menu_upload"
+            android:src="@drawable/ic_upload"
             app:tint="@color/accent" />
 
         <!-- 新建按钮 -->
@@ -62,7 +62,7 @@
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="新建"
             android:padding="8dp"
-            android:src="@android:drawable/ic_menu_add"
+            android:src="@drawable/ic_add"
             app:tint="@color/accent" />
 
         <!-- 搜索按钮 -->
@@ -73,7 +73,7 @@
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="搜索"
             android:padding="8dp"
-            android:src="@android:drawable/ic_menu_search"
+            android:src="@drawable/ic_search"
             app:tint="@color/accent" />
 
         <!-- 保存按钮 -->
@@ -84,7 +84,7 @@
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="保存"
             android:padding="8dp"
-            android:src="@android:drawable/ic_menu_save"
+            android:src="@drawable/ic_save"
             app:tint="@color/accent" />
     </LinearLayout>
 

@@ -5,9 +5,8 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F5F5F5">
+    android:background="@color/koodo_bg">
 
-    <!-- 历史记录列表 -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rv_book_history"
         android:layout_width="0dp"
@@ -21,7 +20,6 @@
         app:layout_constraintTop_toTopOf="parent"
         tools:listitem="@layout/item_book_history" />
 
-    <!-- 空状态提示 -->
     <LinearLayout
         android:id="@+id/ll_empty_state"
         android:layout_width="wrap_content"
@@ -37,18 +35,26 @@
         <ImageView
             android:layout_width="64dp"
             android:layout_height="64dp"
-            android:alpha="0.5"
-            android:contentDescription="无历史记录"
-            android:src="@android:drawable/ic_menu_recent_history" />
+            android:alpha="0.3"
+            android:contentDescription="无笔记"
+            android:src="@drawable/ic_history"
+            app:tint="#BDBDBD" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:text="暂无阅读历史"
-            android:textColor="@color/text_secondary"
+            android:text="暂无笔记"
+            android:textColor="#BDBDBD"
             android:textSize="14sp" />
 
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="阅读时选中文字即可添加笔记"
+            android:textColor="#BDBDBD"
+            android:textSize="12sp" />
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
