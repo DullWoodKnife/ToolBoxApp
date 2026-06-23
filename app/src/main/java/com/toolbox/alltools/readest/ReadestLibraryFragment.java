@@ -1,8 +1,6 @@
 package com.toolbox.alltools.readest;
 
-import android.app.Activity;
 import android.app.AlertDialog;
-import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -19,7 +17,6 @@ import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.toolbox.alltools.R;
 import com.toolbox.alltools.bookshelf.Book;
 import com.toolbox.alltools.bookshelf.BookDatabaseHelper;
@@ -32,10 +29,10 @@ import java.util.List;
 /**
  * Readest 书架Fragment
  * 参考Readest风格，支持列表/网格视图切换、排序、搜索、长按操作
+ * 导入功能统一由 Activity Toolbar 菜单处理，去除重复的 FAB 按钮
  */
 public class ReadestLibraryFragment extends Fragment {
 
-    private static final int REQUEST_PICK_FILE = 3002;
     private static final int VIEW_MODE_LIST = 0;
     private static final int VIEW_MODE_GRID = 1;
     private static final int SORT_BY_TITLE = 0;
@@ -47,7 +44,6 @@ public class ReadestLibraryFragment extends Fragment {
     private TextView tvBookCount;
     private TextView tvEmptyState;
     private LinearLayout layoutEmptyState;
-    private FloatingActionButton fabImport;
     private ImageView ivSortButton;
 
     private ReadestBookListAdapter listAdapter;
@@ -80,10 +76,7 @@ public class ReadestLibraryFragment extends Fragment {
         tvBookCount = view.findViewById(R.id.tv_book_count);
         tvEmptyState = view.findViewById(R.id.tv_empty_state);
         layoutEmptyState = (LinearLayout) view.findViewById(R.id.tv_empty_state).getParent();
-        fabImport = view.findViewById(R.id.fab_import);
         ivSortButton = view.findViewById(R.id.btn_sort);
-
-        fabImport.setOnClickListener(v -> openFilePicker());
 
         ivSortButton.setOnClickListener(v -> showSortDialog());
     }
@@ -130,103 +123,6 @@ public class ReadestLibraryFragment extends Fragment {
             rvBooks.setAdapter(gridAdapter);
             gridAdapter.setBooks(displayBooks);
         }
-    }
-
-    private void openFilePicker() {
-        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-        intent.addCategory(Intent.CATEGORY_OPENABLE);
-        intent.setType("*/*");
-        String[] mimeTypes = {
-                "application/pdf",
-                "application/epub+zip",
-                "application/x-mobipocket-ebook",
-                "application/vnd.amazon.ebook",
-                "text/plain"
-        };
-        intent.putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes);
-        startActivityForResult(intent, REQUEST_PICK_FILE);
-    }
-
-    @Override
-    public void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == REQUEST_PICK_FILE && resultCode == Activity.RESULT_OK && data != null) {
-            android.net.Uri uri = data.getData();
-            if (uri != null) {
-                handlePickedFile(uri);
-            }
-        }
-    }
-
-    private void handlePickedFile(android.net.Uri uri) {
-        String fileName = getFileName(uri);
-        String extension = getFileExtension(fileName);
-        String format = extension.toLowerCase();
-
-        java.util.Set<String> supported = new java.util.HashSet<>(
-                java.util.Arrays.asList("pdf", "epub", "mobi", "azw3", "txt"));
-        if (!supported.contains(format)) {
-            Toast.makeText(requireContext(), "不支持的文件格式: " + extension, Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        String title = fileName.contains(".") ? fileName.substring(0, fileName.lastIndexOf('.')) : fileName;
-
-        Book book = new Book();
-        book.setTitle(title);
-        book.setAuthor("");
-        book.setFileUri(uri.toString());
-        book.setFilePath(uri.toString());
-        book.setFormat(format);
-        book.setCategory("默认");
-        book.setFileSize(getFileSize(uri));
-        book.setAddedTime(System.currentTimeMillis());
-        book.setLastReadTime(0);
-        book.setReadProgress(0f);
-        book.setCurrentPage(0);
-        book.setCurrentChapter(0);
-        book.setTotalPages(0);
-        book.setFavorite(false);
-
-        long id = dbHelper.insertBook(book);
-        if (id > 0) {
-            Toast.makeText(requireContext(), "已添加: " + title, Toast.LENGTH_SHORT).show();
-            refreshBooks();
-        } else {
-            Toast.makeText(requireContext(), "添加失败", Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    private String getFileName(android.net.Uri uri) {
-        String displayName = "unknown";
-        try (android.database.Cursor cursor = requireContext().getContentResolver().query(
-                uri, null, null, null, null)) {
-            if (cursor != null && cursor.moveToFirst()) {
-                int nameIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME);
-                if (nameIndex >= 0) {
-                    displayName = cursor.getString(nameIndex);
-                }
-            }
-        } catch (Exception ignored) {
-        }
-        return displayName;
-    }
-
-    private String getFileExtension(String fileName) {
-        int dotIndex = fileName.lastIndexOf('.');
-        return dotIndex > 0 ? fileName.substring(dotIndex + 1) : "";
-    }
-
-    private long getFileSize(android.net.Uri uri) {
-        try (android.database.Cursor cursor = requireContext().getContentResolver().query(
-                uri, new String[]{android.provider.OpenableColumns.SIZE}, null, null, null)) {
-            if (cursor != null && cursor.moveToFirst()) {
-                int sizeIndex = cursor.getColumnIndex(android.provider.OpenableColumns.SIZE);
-                if (sizeIndex >= 0) return cursor.getLong(sizeIndex);
-            }
-        } catch (Exception ignored) {
-        }
-        return 0;
     }
 
     private void showSortDialog() {
@@ -341,7 +237,7 @@ public class ReadestLibraryFragment extends Fragment {
             if (currentSearchKeyword != null) {
                 tvEmptyState.setText("未找到匹配的书籍");
             } else {
-                tvEmptyState.setText("书架空空如也\n点击 + 导入你的第一本书");
+                tvEmptyState.setText("书架空空如也\n点击右上角 + 导入你的第一本书");
             }
         } else {
             rvBooks.setVisibility(View.VISIBLE);

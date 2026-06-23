@@ -67,19 +67,4 @@
         android:lineSpacingExtra="4dp"
         android:visibility="gone" />
 
-    <!-- 右下角导入 FAB -->
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/fab_import"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="end|bottom"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="16dp"
-        android:contentDescription="导入书籍"
-        android:src="@drawable/ic_add"
-        app:backgroundTint="@color/accent"
-        app:tint="@color/button_text"
-        app:elevation="6dp"
-        app:borderWidth="0dp" />
-
 </LinearLayout>

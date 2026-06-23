@@ -21,65 +21,7 @@
             app:titleTextColor="@color/text_white"
             app:title="Readest"
             app:titleTextAppearance="@style/TextAppearance.MaterialComponents.Headline6"
-            app:layout_scrollFlags="scroll|enterAlways">
-
-            <!-- 左侧标题已通过 app:title 设置 -->
-
-            <!-- 右侧操作按钮 -->
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:layout_gravity="end"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
-
-                <!-- 搜索 -->
-                <ImageButton
-                    android:id="@+id/btn_search"
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:contentDescription="搜索"
-                    android:padding="8dp"
-                    android:src="@drawable/ic_search"
-                    app:tint="@color/text_white" />
-
-                <!-- 导入 -->
-                <ImageButton
-                    android:id="@+id/btn_import"
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:contentDescription="导入"
-                    android:padding="8dp"
-                    android:src="@drawable/ic_add"
-                    app:tint="@color/text_white" />
-
-                <!-- 视图切换 (grid/list) -->
-                <ImageButton
-                    android:id="@+id/btn_view_toggle"
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:contentDescription="切换视图"
-                    android:padding="8dp"
-                    android:src="@drawable/ic_view_grid"
-                    app:tint="@color/text_white" />
-
-                <!-- 设置 -->
-                <ImageButton
-                    android:id="@+id/btn_settings"
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:contentDescription="设置"
-                    android:padding="8dp"
-                    android:src="@drawable/ic_settings"
-                    app:tint="@color/text_white" />
-
-            </LinearLayout>
-
-        </com.google.android.material.appbar.MaterialToolbar>
+            app:layout_scrollFlags="scroll|enterAlways" />
 
     </com.google.android.material.appbar.AppBarLayout>
 

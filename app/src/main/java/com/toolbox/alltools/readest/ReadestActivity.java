@@ -1,8 +1,6 @@
 package com.toolbox.alltools.readest;
 
-import android.app.Activity;
 import android.content.Context;
-import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Bundle;
@@ -11,6 +9,8 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
@@ -28,10 +28,10 @@ import java.util.List;
 /**
  * Readest 主Activity
  * 参考Readest的现代化UI风格，使用Toolbar导航、搜索、导入、视图切换和设置功能
+ * 已移除：登录、云端上传、高级设置（备份恢复/管理缓存/清除数据）、关于Readest
  */
 public class ReadestActivity extends AppCompatActivity {
 
-    private static final int REQUEST_PICK_BOOK = 3001;
     private static final String PREFS_NAME = "readest_prefs";
     private static final String KEY_VIEW_MODE = "view_mode";
     private static final int VIEW_MODE_LIST = 0;
@@ -42,6 +42,8 @@ public class ReadestActivity extends AppCompatActivity {
     private ReadestLibraryFragment libraryFragment;
     private int currentViewMode = VIEW_MODE_GRID;
 
+    private ActivityResultLauncher<Intent> filePickerLauncher;
+
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -51,8 +53,22 @@ public class ReadestActivity extends AppCompatActivity {
         currentViewMode = prefs.getInt(KEY_VIEW_MODE, VIEW_MODE_GRID);
         dbHelper = BookDatabaseHelper.getInstance(this);
 
+        initFilePicker();
         setupToolbar();
         loadLibraryFragment();
+    }
+
+    private void initFilePicker() {
+        filePickerLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+                        Uri uri = result.getData().getData();
+                        if (uri != null) {
+                            handleImportedFile(uri);
+                        }
+                    }
+                });
     }
 
     private void setupToolbar() {
@@ -144,7 +160,7 @@ public class ReadestActivity extends AppCompatActivity {
                 "text/plain"
         };
         intent.putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes);
-        startActivityForResult(intent, REQUEST_PICK_BOOK);
+        filePickerLauncher.launch(intent);
     }
 
     private void toggleViewMode(MenuItem item) {
@@ -171,7 +187,6 @@ public class ReadestActivity extends AppCompatActivity {
                 .setTitle("设置")
                 .setView(dialogView)
                 .setPositiveButton("确定", (dialog, which) -> {
-                    // 读取设置并应用
                     applySettings(dialogView);
                 })
                 .setNegativeButton("取消", null)
@@ -181,17 +196,6 @@ public class ReadestActivity extends AppCompatActivity {
     private void applySettings(View dialogView) {
         // 设置应用逻辑可在此扩展
         Toast.makeText(this, "设置已保存", Toast.LENGTH_SHORT).show();
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == REQUEST_PICK_BOOK && resultCode == Activity.RESULT_OK && data != null) {
-            Uri uri = data.getData();
-            if (uri != null) {
-                handleImportedFile(uri);
-            }
-        }
     }
 
     private void handleImportedFile(Uri uri) {
