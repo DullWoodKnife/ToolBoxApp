@@ -159,7 +159,7 @@ public class BookGridAdapter extends RecyclerView.Adapter<BookGridAdapter.BookVi
                 int formatColor = getFormatColor(book.getFormat());
                 tvCoverBanner.setText(format);
                 GradientDrawable bannerBg = new GradientDrawable();
-                bannerBg.setColor(context.getResources().getColor(formatColor));
+                bannerBg.setColor(androidx.core.content.ContextCompat.getColor(context, formatColor));
                 tvCoverBanner.setBackground(bannerBg);
 
                 // 标题

@@ -5,6 +5,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
@@ -32,15 +33,38 @@ public class BookShelfActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_book_shelf);
 
+        // 清除之前恢复的Fragment，防止ViewPager2重复创建
+        if (savedInstanceState != null) {
+            androidx.fragment.app.FragmentManager fm = getSupportFragmentManager();
+            androidx.fragment.app.FragmentTransaction ft = fm.beginTransaction();
+            for (androidx.fragment.app.Fragment fragment : fm.getFragments()) {
+                ft.remove(fragment);
+            }
+            ft.commitNowAllowingStateLoss();
+        }
+
         initViews();
         setupViewPager();
         setupBottomNav();
+
+        // 防止Fragment状态恢复导致的重复创建问题
+        if (savedInstanceState != null) {
+            viewPager.setCurrentItem(savedInstanceState.getInt("current_page", 0), false);
+        }
+    }
+
+    @Override
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putInt("current_page", viewPager.getCurrentItem());
     }
 
     private void initViews() {
         viewPager = findViewById(R.id.view_pager);
         bottomNav = findViewById(R.id.bottom_nav);
     }
+
+    private boolean isNavigating = false;
 
     private void setupViewPager() {
         viewPager.setAdapter(new FragmentStateAdapter(this) {
@@ -65,6 +89,8 @@ public class BookShelfActivity extends AppCompatActivity {
         viewPager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
             @Override
             public void onPageSelected(int position) {
+                if (isNavigating) return;
+                isNavigating = true;
                 int itemId;
                 switch (position) {
                     case 0: itemId = R.id.nav_home; break;
@@ -74,12 +100,15 @@ public class BookShelfActivity extends AppCompatActivity {
                     default: itemId = R.id.nav_home;
                 }
                 bottomNav.setSelectedItemId(itemId);
+                isNavigating = false;
             }
         });
     }
 
     private void setupBottomNav() {
         bottomNav.setOnItemSelectedListener(item -> {
+            if (isNavigating) return true;
+            isNavigating = true;
             int position;
             int itemId = item.getItemId();
             if (itemId == R.id.nav_home) {
@@ -94,6 +123,7 @@ public class BookShelfActivity extends AppCompatActivity {
                 position = 0;
             }
             viewPager.setCurrentItem(position, false);
+            isNavigating = false;
             return true;
         });
     }

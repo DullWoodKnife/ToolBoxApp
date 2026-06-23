@@ -147,7 +147,8 @@ public class BookShelfFragment extends Fragment {
             return;
         }
 
-        String title = fileName.substring(0, fileName.lastIndexOf('.'));
+        int dotIndex = fileName.lastIndexOf('.');
+        String title = dotIndex > 0 ? fileName.substring(0, dotIndex) : fileName;
 
         Book book = new Book();
         book.setTitle(title);

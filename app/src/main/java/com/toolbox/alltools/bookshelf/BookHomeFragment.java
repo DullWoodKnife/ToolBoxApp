@@ -254,7 +254,8 @@ public class BookHomeFragment extends Fragment {
             return;
         }
 
-        String title = fileName.substring(0, fileName.lastIndexOf('.'));
+        int dotIndex = fileName.lastIndexOf('.');
+        String title = dotIndex > 0 ? fileName.substring(0, dotIndex) : fileName;
 
         Book book = new Book();
         book.setTitle(title);
@@ -314,7 +315,7 @@ public class BookHomeFragment extends Fragment {
         android.widget.EditText etSearch = new android.widget.EditText(requireContext());
         etSearch.setHint("搜索书名或作者...");
         etSearch.setPadding(48, 32, 48, 32);
-        etSearch.setBackground(getResources().getDrawable(R.drawable.bg_edittext));
+        etSearch.setBackground(androidx.core.content.ContextCompat.getDrawable(requireContext(), R.drawable.bg_edittext));
 
         new AlertDialog.Builder(requireContext())
                 .setTitle("搜索书籍")
