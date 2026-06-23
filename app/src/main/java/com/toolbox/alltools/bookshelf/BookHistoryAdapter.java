@@ -26,6 +26,15 @@ public class BookHistoryAdapter extends RecyclerView.Adapter<BookHistoryAdapter.
 
     private final Context context;
     private List<Book> books = new ArrayList<>();
+    private OnBookClickListener clickListener;
+
+    public interface OnBookClickListener {
+        void onBookClick(Book book, int position);
+    }
+
+    public void setOnBookClickListener(OnBookClickListener listener) {
+        this.clickListener = listener;
+    }
 
     public BookHistoryAdapter(Context context) {
         this.context = context;
@@ -87,7 +96,11 @@ public class BookHistoryAdapter extends RecyclerView.Adapter<BookHistoryAdapter.
                 int pos = getAdapterPosition();
                 if (pos != RecyclerView.NO_POSITION) {
                     Book book = books.get(pos);
-                    openBookReader(book.getId());
+                    if (clickListener != null) {
+                        clickListener.onBookClick(book, pos);
+                    } else {
+                        openBookReader(book.getId());
+                    }
                 }
             });
         }
