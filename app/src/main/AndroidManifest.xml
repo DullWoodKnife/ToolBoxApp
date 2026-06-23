@@ -51,18 +51,6 @@
             android:name=".modules.CalculatorActivity"
             android:theme="@style/Theme.ToolBoxApp" />
 
-        <activity
-            android:name=".bookshelf.BookShelfActivity"
-            android:theme="@style/Theme.KoodoReader" />
-
-        <activity
-            android:name=".bookshelf.BookReaderActivity"
-            android:theme="@style/Theme.ToolBoxApp" />
-
-        <activity
-            android:name=".readest.ReadestActivity"
-            android:theme="@style/Theme.ToolBoxApp" />
-
     </application>
 
 </manifest>
