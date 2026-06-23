@@ -432,4 +432,20 @@ public class BookDatabaseHelper extends SQLiteOpenHelper {
         book.setFavorite(cursor.getInt(cursor.getColumnIndexOrThrow(COL_BOOK_IS_FAVORITE)) == 1);
         return book;
     }
+
+    /**
+     * 清除所有数据（保留分类表结构）
+     */
+    public void clearAllData() {
+        SQLiteDatabase db = this.getWritableDatabase();
+        db.beginTransaction();
+        try {
+            db.delete(TABLE_BOOKS, null, null);
+            db.delete(TABLE_HISTORY, null, null);
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+            db.close();
+        }
+    }
 }

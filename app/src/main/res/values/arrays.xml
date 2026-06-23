@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- 字体选择 -->
+    <string-array name="font_family_options">
+        <item>衬线体 (Serif)</item>
+        <item>无衬线体 (Sans-serif)</item>
+    </string-array>
+
+    <!-- 页面模式 -->
+    <string-array name="page_mode_options">
+        <item>单页</item>
+        <item>双页</item>
+    </string-array>
+
+    <!-- 阅读方向 -->
+    <string-array name="reading_direction_options">
+        <item>从左到右 (LTR)</item>
+        <item>从右到左 (RTL)</item>
+    </string-array>
+
+    <!-- 主题模式 -->
+    <string-array name="theme_mode_options">
+        <item>亮色</item>
+        <item>暗色</item>
+        <item>跟随系统</item>
+    </string-array>
+
+    <!-- 翻页模式 -->
+    <string-array name="turn_page_mode_options">
+        <item>滑动</item>
+        <item>点击</item>
+        <item>滚动</item>
+    </string-array>
+
+    <!-- TTS 引擎 -->
+    <string-array name="tts_engine_options">
+        <item>系统默认</item>
+        <item>Google TTS</item>
+    </string-array>
+
+</resources>

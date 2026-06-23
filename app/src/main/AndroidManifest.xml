@@ -59,6 +59,10 @@
             android:name=".bookshelf.BookReaderActivity"
             android:theme="@style/Theme.ToolBoxApp" />
 
+        <activity
+            android:name=".readest.ReadestActivity"
+            android:theme="@style/Theme.ToolBoxApp" />
+
     </application>
 
 </manifest>

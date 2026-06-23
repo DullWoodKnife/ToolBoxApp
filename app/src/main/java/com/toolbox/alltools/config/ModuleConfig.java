@@ -11,6 +11,7 @@ import com.toolbox.alltools.modules.TextConverterModule;
 import com.toolbox.alltools.modules.TextEditorModule;
 import com.toolbox.alltools.modules.VideoToolsModule;
 import com.toolbox.alltools.modules.WebCrawlerModule;
+import com.toolbox.alltools.readest.ReadestModule;
 
 /**
  * 模块配置类
@@ -40,7 +41,10 @@ public class ModuleConfig {
         // 文本编辑器
         registry.register(new TextEditorModule());
 
-        // 阅读器
+        // 阅读器Readest版
+        registry.register(new ReadestModule());
+
+        // 阅读器Koodo版
         registry.register(new BookShelfModule());
 
         // 音频格式转换

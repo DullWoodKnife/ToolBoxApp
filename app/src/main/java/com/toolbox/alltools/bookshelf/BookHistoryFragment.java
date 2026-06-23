@@ -5,7 +5,6 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.LinearLayout;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -28,7 +27,7 @@ import java.util.List;
 public class BookHistoryFragment extends Fragment {
 
     private RecyclerView rvBookHistory;
-    private LinearLayout llEmptyState;
+    private View llEmptyState;
 
     private BookHistoryAdapter historyAdapter;
     private BookDatabaseHelper dbHelper;
@@ -52,6 +51,10 @@ public class BookHistoryFragment extends Fragment {
     private void initViews(View view) {
         rvBookHistory = view.findViewById(R.id.rv_book_history);
         llEmptyState = view.findViewById(R.id.ll_empty_state);
+        if (llEmptyState == null) {
+            // fallback for different layout
+            llEmptyState = view.findViewById(R.id.tv_empty_state);
+        }
     }
 
     private void setupRecyclerView() {

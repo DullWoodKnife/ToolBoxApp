@@ -1,22 +1,21 @@
-package com.toolbox.alltools.bookshelf;
+package com.toolbox.alltools.readest;
 
 import com.toolbox.alltools.R;
 import com.toolbox.alltools.ToolModule;
 
 /**
- * 书架模块注册类
- * 实现 ToolModule 接口，用于在主界面注册书架功能入口
+ * Readest 阅读器模块注册类
+ * 参考 Readest (Next.js + Tauri) 的 UI 风格，用 Android 原生代码实现
  */
-public class BookShelfModule implements ToolModule {
-
+public class ReadestModule implements ToolModule {
     @Override
     public String getModuleName() {
-        return "阅读器Koodo版";
+        return "阅读器Readest版";
     }
 
     @Override
     public String getModuleDesc() {
-        return "管理PDF/EPUB/MOBI/AZW3电子书";
+        return "现代化电子书阅读器";
     }
 
     @Override
@@ -26,6 +25,6 @@ public class BookShelfModule implements ToolModule {
 
     @Override
     public Class<?> getModuleActivityClass() {
-        return BookShelfActivity.class;
+        return ReadestActivity.class;
     }
 }

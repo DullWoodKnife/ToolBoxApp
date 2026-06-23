@@ -35,6 +35,18 @@
             android:paddingBottom="80dp"
             tools:listitem="@layout/item_book_grid" />
 
+        <!-- 空状态提示 -->
+        <TextView
+            android:id="@+id/tv_empty_state"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:text="暂无书籍\n\n点击右下角 + 添加书籍"
+            android:textColor="@color/text_secondary"
+            android:textSize="14sp"
+            android:gravity="center"
+            android:visibility="gone" />
+
     </LinearLayout>
 
     <!-- 添加书籍浮动按钮 -->
