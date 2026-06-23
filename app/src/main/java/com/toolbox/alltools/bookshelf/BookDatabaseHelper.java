@@ -140,7 +140,6 @@ public class BookDatabaseHelper extends SQLiteOpenHelper {
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = bookToContentValues(book);
         long id = db.insert(TABLE_BOOKS, null, values);
-        db.close();
         return id;
     }
 
@@ -153,7 +152,6 @@ public class BookDatabaseHelper extends SQLiteOpenHelper {
         int rows = db.update(TABLE_BOOKS, values,
                 COL_BOOK_ID + " = ?",
                 new String[]{String.valueOf(book.getId())});
-        db.close();
         return rows;
     }
 
@@ -165,7 +163,6 @@ public class BookDatabaseHelper extends SQLiteOpenHelper {
         int rows = db.delete(TABLE_BOOKS,
                 COL_BOOK_ID + " = ?",
                 new String[]{String.valueOf(bookId)});
-        db.close();
         return rows;
     }
 
@@ -183,7 +180,6 @@ public class BookDatabaseHelper extends SQLiteOpenHelper {
             book = cursorToBook(cursor);
             cursor.close();
         }
-        db.close();
         return book;
     }
 
@@ -201,7 +197,6 @@ public class BookDatabaseHelper extends SQLiteOpenHelper {
             }
             cursor.close();
         }
-        db.close();
         return books;
     }
 
@@ -223,7 +218,6 @@ public class BookDatabaseHelper extends SQLiteOpenHelper {
             }
             cursor.close();
         }
-        db.close();
         return books;
     }
 
@@ -244,7 +238,6 @@ public class BookDatabaseHelper extends SQLiteOpenHelper {
             }
             cursor.close();
         }
-        db.close();
         return books;
     }
 
@@ -264,7 +257,6 @@ public class BookDatabaseHelper extends SQLiteOpenHelper {
             }
             cursor.close();
         }
-        db.close();
         return books;
     }
 
@@ -289,7 +281,6 @@ public class BookDatabaseHelper extends SQLiteOpenHelper {
             }
             cursor.close();
         }
-        db.close();
         return books;
     }
 
@@ -325,7 +316,6 @@ public class BookDatabaseHelper extends SQLiteOpenHelper {
             db.setTransactionSuccessful();
         } finally {
             db.endTransaction();
-            db.close();
         }
     }
 
@@ -339,7 +329,6 @@ public class BookDatabaseHelper extends SQLiteOpenHelper {
         int rows = db.update(TABLE_BOOKS, values,
                 COL_BOOK_ID + " = ?",
                 new String[]{String.valueOf(bookId)});
-        db.close();
         return rows;
     }
 
@@ -354,7 +343,6 @@ public class BookDatabaseHelper extends SQLiteOpenHelper {
         values.put(COL_CATEGORY_NAME, name);
         values.put(COL_CATEGORY_SORT_ORDER, sortOrder);
         long id = db.insert(TABLE_CATEGORIES, null, values);
-        db.close();
         return id;
     }
 
@@ -374,7 +362,6 @@ public class BookDatabaseHelper extends SQLiteOpenHelper {
             }
             cursor.close();
         }
-        db.close();
         return categories;
     }
 
@@ -386,7 +373,6 @@ public class BookDatabaseHelper extends SQLiteOpenHelper {
         int rows = db.delete(TABLE_CATEGORIES,
                 COL_CATEGORY_ID + " = ?",
                 new String[]{String.valueOf(categoryId)});
-        db.close();
         return rows;
     }
 
@@ -445,7 +431,6 @@ public class BookDatabaseHelper extends SQLiteOpenHelper {
             db.setTransactionSuccessful();
         } finally {
             db.endTransaction();
-            db.close();
         }
     }
 }
