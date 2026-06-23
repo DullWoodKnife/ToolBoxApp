@@ -37,8 +37,11 @@ public class ModuleConfig {
         // 文本格式转换器
         registry.register(new TextConverterModule());
 
-        // 文本阅读编辑器
+        // 文本编辑器
         registry.register(new TextEditorModule());
+
+        // 阅读器
+        registry.register(new BookShelfModule());
 
         // 音频格式转换
         registry.register(new AudioConverterModule());
@@ -51,9 +54,6 @@ public class ModuleConfig {
 
         // 全能计算器
         registry.register(new CalculatorModule());
-
-        // 书架
-        registry.register(new BookShelfModule());
 
         // ==================== 新增模块在此处添加 ====================
         // registry.register(new YourNewModule());
