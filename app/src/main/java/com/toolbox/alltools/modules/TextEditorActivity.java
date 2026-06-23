@@ -137,6 +137,12 @@ public class TextEditorActivity extends BaseToolActivity {
     private File mobiCacheFile = null;
     private List<MobiChapter> mobiChapters = new ArrayList<>();
     private int mobiCurrentChapter = 0;
+    // MOBI 头部信息
+    private int mobiCompressionType = 1; // 1=无压缩, 2=PalmDOC, 17480=HUFF/CDIC
+    private int mobiTextEncoding = 65001; // 65001=UTF-8, 1252=CP1252
+    private int mobiTextRecordCount = 0;
+    private int mobiFirstContentRecord = 1;
+    private int mobiRecordSize = 4096;
 
     // 大文本分页相关
     private static final int TEXT_LINES_PER_PAGE = 5000; // 每页5000行
@@ -223,7 +229,9 @@ public class TextEditorActivity extends BaseToolActivity {
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 "application/vnd.ms-powerpoint",
                 "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-                "application/epub+zip", "application/pdf", "application/octet-stream"
+                "application/epub+zip", "application/pdf", "application/octet-stream",
+                "application/x-mobipocket-ebook",
+                "application/vnd.amazon.mobi8-ebook"
         });
         startActivityForResult(intent, REQUEST_OPEN_FILE);
     }
@@ -377,6 +385,11 @@ public class TextEditorActivity extends BaseToolActivity {
         mobiCacheFile = null;
         mobiChapters.clear();
         mobiCurrentChapter = 0;
+        mobiCompressionType = 1;
+        mobiTextEncoding = 65001;
+        mobiTextRecordCount = 0;
+        mobiFirstContentRecord = 1;
+        mobiRecordSize = 4096;
     }
 
     // ==================== EPUB 导航 ====================
@@ -394,12 +407,20 @@ public class TextEditorActivity extends BaseToolActivity {
 
     private static class MobiChapter {
         String title;
-        long offset; // 记录在文件中的偏移量
-        long size;   // 记录大小
-        MobiChapter(String title, long offset, long size) {
+        long offset; // 第一个记录在文件中的偏移量
+        long size;   // 所有记录的总大小
+        int startRecord; // 起始记录索引
+        int endRecord;   // 结束记录索引（不包含）
+        MobiChapter(String title, long offset, long size, int startRecord, int endRecord) {
             this.title = title;
             this.offset = offset;
             this.size = size;
+            this.startRecord = startRecord;
+            this.endRecord = endRecord;
+        }
+        // 兼容旧构造函数
+        MobiChapter(String title, long offset, long size) {
+            this(title, offset, size, 0, 0);
         }
     }
 
@@ -1543,62 +1564,103 @@ public class TextEditorActivity extends BaseToolActivity {
         long fileSize = file.length();
         RandomAccessFile raf = new RandomAccessFile(file, "r");
         try {
-            // 读取 PalmDB 头部
-            byte[] header = new byte[78];
-            raf.readFully(header);
+            // ===== 步骤1：读取 PalmDB 头部 =====
+            byte[] pdbHeader = new byte[78];
+            raf.readFully(pdbHeader);
+            String palmType = new String(pdbHeader, 60, 8, StandardCharsets.ISO_8859_1).trim();
+            int numRecords = ((pdbHeader[76] & 0xFF) << 8) | (pdbHeader[77] & 0xFF);
 
-            String palmType = new String(header, 60, 8, StandardCharsets.ISO_8859_1).trim();
-            int numRecords = ((header[76] & 0xFF) << 8) | (header[77] & 0xFF);
-
-            // 读取记录偏移表
+            // ===== 步骤2：读取记录偏移表 =====
             long[] recordOffsets = new long[numRecords];
-            long[] recordSizes = new long[numRecords];
             raf.seek(78);
             for (int i = 0; i < numRecords; i++) {
                 recordOffsets[i] = raf.readInt() & 0xFFFFFFFFL;
                 raf.skipBytes(4); // 跳过记录属性
-                recordSizes[i] = 0;
             }
+            long[] recordSizes = new long[numRecords];
             for (int i = 0; i < numRecords - 1; i++) {
                 recordSizes[i] = recordOffsets[i + 1] - recordOffsets[i];
             }
             recordSizes[numRecords - 1] = fileSize - recordOffsets[numRecords - 1];
 
-            // 解析章节列表（将每个文本记录作为章节）
-            int chapterNum = 0;
-            for (int i = 0; i < numRecords; i++) {
-                if (recordSizes[i] <= 0 || recordSizes[i] > 10 * 1024 * 1024) continue;
+            // ===== 步骤3：解析 PalmDOC Header（Record 0 前 16 字节）=====
+            byte[] palmDocHeader = new byte[16];
+            raf.seek(recordOffsets[0]);
+            raf.readFully(palmDocHeader);
 
-                // 读取记录前 4KB 判断内容类型
-                long previewSize = Math.min(recordSizes[i], 4096);
-                byte[] preview = new byte[(int) previewSize];
-                raf.seek(recordOffsets[i]);
-                raf.readFully(preview);
+            mobiCompressionType = ((palmDocHeader[0] & 0xFF) << 8) | (palmDocHeader[1] & 0xFF);
+            // palmDocHeader[2-3]: unused
+            // palmDocHeader[4-7]: text length (uncompressed)
+            mobiTextRecordCount = ((palmDocHeader[8] & 0xFF) << 8) | (palmDocHeader[9] & 0xFF);
+            mobiRecordSize = ((palmDocHeader[10] & 0xFF) << 8) | (palmDocHeader[11] & 0xFF);
+            int encryptionType = ((palmDocHeader[12] & 0xFF) << 8) | (palmDocHeader[13] & 0xFF);
 
-                String previewStr = decodeWithFallback(preview, (int) previewSize);
-                String lower = previewStr.toLowerCase();
+            if (encryptionType != 0) {
+                return "该MOBI/AZW3文件已加密（DRM保护），无法读取。\n\n建议：使用Calibre移除DRM后转换格式。";
+            }
 
-                // 只保留包含 HTML/文本内容的记录
-                if (lower.contains("<html") || lower.contains("<body") || lower.contains("<p") ||
-                    lower.contains("<div") || lower.contains("<?xml") || lower.contains("<h1") ||
-                    lower.contains("<h2") || lower.contains("<h3")) {
+            if (mobiCompressionType == 17480) {
+                return "该文件使用HUFF/CDIC压缩，暂不支持。\n\n建议：使用Calibre将AZW3/MOBI转换为EPUB或TXT格式后打开。";
+            }
 
-                    // 提取章节标题
-                    String title = extractMobiChapterTitle(previewStr);
-                    if (title.isEmpty()) {
-                        title = "第 " + (chapterNum + 1) + " 章";
+            // ===== 步骤4：解析 MOBI Header（Record 0 偏移 16 处）=====
+            if (recordSizes[0] >= 20) {
+                byte[] mobiHeader = new byte[Math.min((int) recordSizes[0], 268)];
+                raf.seek(recordOffsets[0]);
+                raf.readFully(mobiHeader);
+
+                // 检查 MOBI 标识符
+                if (mobiHeader.length >= 20 && new String(mobiHeader, 16, 4, StandardCharsets.ISO_8859_1).equals("MOBI")) {
+                    // 偏移 28: text encoding
+                    if (mobiHeader.length >= 32) {
+                        mobiTextEncoding = ((mobiHeader[28] & 0xFF) << 24) | ((mobiHeader[29] & 0xFF) << 16) |
+                                ((mobiHeader[30] & 0xFF) << 8) | (mobiHeader[31] & 0xFF);
                     }
-                    mobiChapters.add(new MobiChapter(title, recordOffsets[i], recordSizes[i]));
-                    chapterNum++;
+                    // 偏移 192: first content record number
+                    if (mobiHeader.length >= 194) {
+                        mobiFirstContentRecord = ((mobiHeader[192] & 0xFF) << 8) | (mobiHeader[193] & 0xFF);
+                    }
                 }
             }
 
-            if (mobiChapters.isEmpty()) {
-                // 没找到 HTML 记录，回退到流式搜索
-                return searchHtmlInFileStream(raf, fileSize);
+            // ===== 步骤5：构建章节列表 =====
+            int lastTextRecord = Math.min(mobiFirstContentRecord + mobiTextRecordCount, numRecords);
+            // 将每 10 个文本记录合并为一个章节（避免章节过多）
+            final int RECORDS_PER_CHAPTER = 10;
+            int chapterNum = 0;
+
+            for (int rec = mobiFirstContentRecord; rec < lastTextRecord; rec += RECORDS_PER_CHAPTER) {
+                int endRec = Math.min(rec + RECORDS_PER_CHAPTER, lastTextRecord);
+                String title = "第 " + (chapterNum + 1) + " 部分";
+
+                // 尝试从第一个记录中提取标题
+                if (rec < numRecords && recordSizes[rec] > 0 && recordSizes[rec] <= 10 * 1024 * 1024) {
+                    try {
+                        byte[] recData = new byte[(int) Math.min(recordSizes[rec], 64 * 1024)];
+                        raf.seek(recordOffsets[rec]);
+                        raf.readFully(recData);
+                        byte[] decompressed = decompressMobiRecord(recData);
+                        String recText = mobiDecode(decompressed);
+                        String chTitle = extractMobiChapterTitle(recText);
+                        if (!chTitle.isEmpty()) title = chTitle;
+                    } catch (Exception ignored) {}
+                }
+
+                // 计算这个章节包含的所有记录的总偏移和总大小
+                long chapterOffset = recordOffsets[rec];
+                long chapterSize = 0;
+                for (int r = rec; r < endRec && r < numRecords; r++) {
+                    chapterSize += recordSizes[r];
+                }
+                mobiChapters.add(new MobiChapter(title, chapterOffset, chapterSize, rec, endRec));
+                chapterNum++;
             }
 
-            // 加载第一章
+            if (mobiChapters.isEmpty()) {
+                return "MOBI/AZW3文件为空或格式不支持。\n\n建议：使用Calibre将AZW3/MOBI转换为EPUB或TXT格式后打开。";
+            }
+
+            // ===== 步骤6：加载第一章 =====
             mobiCurrentChapter = 0;
             String firstText = readMobiChapter(raf, mobiChapters.get(0));
             return "━━━ " + mobiChapters.get(0).title + " ━━━\n\n" +
@@ -1607,6 +1669,96 @@ public class TextEditorActivity extends BaseToolActivity {
         } finally {
             raf.close();
         }
+    }
+
+    /**
+     * 解压单个 MOBI 记录（PalmDOC LZ77 解压）
+     */
+    private byte[] decompressMobiRecord(byte[] compressed) throws Exception {
+        if (mobiCompressionType == 1) {
+            // 无压缩，直接返回
+            return compressed;
+        }
+        if (mobiCompressionType == 2) {
+            // PalmDOC 压缩
+            return palmDocDecompress(compressed);
+        }
+        // 未知压缩，直接返回
+        return compressed;
+    }
+
+    /**
+     * PalmDOC LZ77 解压算法
+     * 0x00-0x07: 距离-长度对的高字节
+     * 0x08-0x7F: 直接输出字符
+     * 0x80-0xBF: 距离-长度对（距离=2048*(byte-0x80)+next_byte, 长度=3+(byte>>5&7)）
+     * 0xC0-0xFF: 空格+直接字符（输出空格+低7位字符）
+     */
+    private byte[] palmDocDecompress(byte[] data) throws Exception {
+        ByteArrayOutputStream out = new ByteArrayOutputStream(data.length * 2);
+        int pos = 0;
+        while (pos < data.length) {
+            byte b = data[pos++];
+            if (b >= 0x00 && b <= 0x07) {
+                // 距离-长度对的高字节，需要下一个字节
+                if (pos >= data.length) break;
+                byte b2 = data[pos++];
+                int distance = ((b & 0xFF) << 8) | (b2 & 0xFF);
+                if (pos >= data.length) break;
+                byte b3 = data[pos++];
+                int length = (b3 & 0x07) + 3;
+                copyFromOutput(out, distance, length);
+            } else if (b >= 0x08 && b <= 0x7F) {
+                // 直接输出
+                out.write(b);
+            } else if (b >= 0x80 && b <= 0xBF) {
+                // 距离-长度对
+                if (pos >= data.length) break;
+                byte b2 = data[pos++];
+                int distance = ((b & 0x3F) << 8) | (b2 & 0xFF);
+                int length = (b >> 2 & 0x07) + 3;
+                copyFromOutput(out, distance, length);
+            } else {
+                // 0xC0-0xFF: 空格 + 字符
+                out.write(' ');
+                out.write(b & 0x7F);
+            }
+        }
+        return out.toByteArray();
+    }
+
+    /**
+     * 从已输出内容中复制数据（用于 LZ77 回溯引用）
+     */
+    private void copyFromOutput(ByteArrayOutputStream out, int distance, int length) {
+        byte[] buf = out.toByteArray();
+        int start = buf.length - distance;
+        if (start < 0) start = 0;
+        for (int i = 0; i < length; i++) {
+            int idx = start + i;
+            if (idx < buf.length) {
+                out.write(buf[idx]);
+            } else {
+                // 回溯到自身（RLE 效果）
+                out.write(buf[buf.length - 1]);
+            }
+        }
+    }
+
+    /**
+     * 使用 MOBI 头部指定的编码解码文本
+     */
+    private String mobiDecode(byte[] data) {
+        if (data == null || data.length == 0) return "";
+        try {
+            if (mobiTextEncoding == 65001) {
+                return new String(data, StandardCharsets.UTF_8);
+            } else if (mobiTextEncoding == 1252) {
+                return new String(data, StandardCharsets.ISO_8859_1);
+            }
+        } catch (Exception ignored) {}
+        // 回退到智能检测
+        return decodeWithFallback(data, data.length);
     }
 
     /**
@@ -1652,15 +1804,47 @@ public class TextEditorActivity extends BaseToolActivity {
     }
 
     /**
-     * 读取 MOBI 章节内容（带编码回退）
+     * 读取 MOBI 章节内容：逐个读取记录，解压，拼接
      */
     private String readMobiChapter(RandomAccessFile raf, MobiChapter chapter) throws Exception {
-        long readSize = Math.min(chapter.size, 2 * 1024 * 1024); // 最多读 2MB
-        byte[] data = new byte[(int) readSize];
-        raf.seek(chapter.offset);
-        raf.readFully(data);
-        String text = decodeWithFallback(data, (int) readSize);
-        return stripHtmlTags(text);
+        StringBuilder sb = new StringBuilder(64 * 1024);
+
+        if (chapter.startRecord > 0 && chapter.endRecord > chapter.startRecord) {
+            // 新模式：按记录索引读取
+            for (int rec = chapter.startRecord; rec < chapter.endRecord; rec++) {
+                // 读取记录偏移和大小
+                raf.seek(78 + rec * 8); // PDB 偏移表位置
+                long recOffset = raf.readInt() & 0xFFFFFFFFL;
+                raf.skipBytes(4);
+                // 计算大小
+                long nextOffset;
+                if (rec + 1 < chapter.endRecord) {
+                    raf.seek(78 + (rec + 1) * 8);
+                    nextOffset = raf.readInt() & 0xFFFFFFFFL;
+                } else {
+                    nextOffset = recOffset + chapter.size; // 近似
+                }
+                long recSize = nextOffset - recOffset;
+                if (recSize <= 0 || recSize > 10 * 1024 * 1024) continue;
+
+                byte[] compressed = new byte[(int) Math.min(recSize, 64 * 1024)];
+                raf.seek(recOffset);
+                raf.readFully(compressed);
+                byte[] decompressed = decompressMobiRecord(compressed);
+                String text = mobiDecode(decompressed);
+                sb.append(text);
+            }
+        } else {
+            // 旧模式回退：直接从 offset 读取
+            long readSize = Math.min(chapter.size, 2 * 1024 * 1024);
+            byte[] data = new byte[(int) readSize];
+            raf.seek(chapter.offset);
+            raf.readFully(data);
+            byte[] decompressed = decompressMobiRecord(data);
+            sb.append(mobiDecode(decompressed));
+        }
+
+        return stripHtmlTags(sb.toString());
     }
 
     /**
